@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, user-scalable=no, viewport-fit=cover" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  
+  <title>Moneycount</title>
+  <meta name="description" content="MoneyCount - 旅行入數助手" />
+  <meta name="apple-mobile-web-app-title" content="Moneycount">
+  
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/favicon.png">
+  <link rel="icon" type="image/png" href="/favicon.png">
+
+  <style>
+    /* 確保全螢幕黑色背景，唔好有白邊 */
+    #root, body, html {
+      height: 100%;
+      background-color: #000;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      color: #fff;
+    }
+    #root { display: flex; flex-direction: column; }
+    
+    /* 預設的 Loading 圈圈 (當 App 未載入完時顯示) */
+    .loading-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(0,229,255,0.2);
+      border-top: 4px solid #00E5FF;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
+</head>
+
+<body>
+  <div id="root">
+    <div class="loading-container">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <script>
+    // 檢查 Service Worker (PWA 必備)
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW error:', err));
+      });
+    }
+
+    // 自動偵測是否已安裝到桌面
+    if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
+      console.log("Moneycount 以獨立 App 模式運行中");
+    }
+  </script>
+
+  <script src="/_expo/static/js/web/entry-28de748ef7d6ed8b8bf6a691b54e50d5.js" defer></script>
+</body>
+</html>
