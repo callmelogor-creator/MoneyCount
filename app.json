@@ -1,10 +1,10 @@
 {
   "expo": {
     "name": "Moneycount",
-    "slug": "Moneycount",
+    "slug": "moneycount-2026",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/assets/images/icon.png",
+    "icon": "./assets/images/icon.png",
     "scheme": "moneycount",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
@@ -14,9 +14,10 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#000000",
-        "foregroundImage": "./assets/assets/images/icon.png"
+        "foregroundImage": "./assets/images/icon.png"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.locs1.moneycount2026"
     },
     "web": {
       "output": "static",
@@ -38,6 +39,12 @@
           "backgroundColor": "#000000"
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "df1e0ef1-4495-44d6-ad66-f735866542ec"
+      }
+    }
   }
 }
