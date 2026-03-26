@@ -46,7 +46,8 @@
     "typescript": "~5.9.2"
   },
   "resolutions": {
-    "react-native-reanimated": "~4.1.1"
+	"react-native-reanimated": "~4.1.1",
+    "react-native-worklets-core": "^1.6.3"
   },
   "private": true
 }
