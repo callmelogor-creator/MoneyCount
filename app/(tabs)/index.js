@@ -29,7 +29,7 @@ const CURRENCY_LIST = [
 ];
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
-// --- 子組件: 記帳表單 ---
+// --- 子組件: 記帳表單 (保持原封不動) ---
 const ExpenseForm = ({ 
   editingId, item, setItem, amount, setAmount, selectedCurr, setSelectedCurr, 
   selectedCat, setSelectedCat, rates, onSave, onReset, setIsPickerVisible, capturedImage, setViewingImage 
@@ -55,14 +55,7 @@ const ExpenseForm = ({
           <TouchableOpacity key={c.code} onPress={() => setSelectedCurr(c)} style={[styles.currBtnSmall, selectedCurr.code === c.code && styles.currActive]}>
             <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
               <Text style={{fontSize: 12}}>{c.flag}</Text>
-              <Text 
-                style={[styles.currTextSmall, selectedCurr.code === c.code && {color:'#00E5FF'}]} 
-                numberOfLines={1} 
-                adjustsFontSizeToFit
-                minimumFontScale={0.5}
-              >
-                {" " + c.code}
-              </Text>
+              <Text style={[styles.currTextSmall, selectedCurr.code === c.code && {color:'#00E5FF'}]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>{" " + c.code}</Text>
             </View>
           </TouchableOpacity>
         ))}
@@ -97,11 +90,68 @@ const ExpenseForm = ({
   );
 };
 
-// --- 子組件: 統計圖表 ---
+// --- 子組件: 簡易日曆選擇器 ---
+const CustomCalendar = ({ onSelectRange, onClose }) => {
+  const [currDate, setCurrDate] = useState(new Date());
+  const [start, setStart] = useState(null);
+  const [end, setEnd] = useState(null);
+
+  const year = currDate.getFullYear();
+  const month = currDate.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDay = new Date(year, month, 1).getDay();
+
+  const handleDayPress = (day) => {
+    const selected = new Date(year, month, day);
+    if (!start || (start && end)) { setStart(selected); setEnd(null); }
+    else if (selected < start) { setStart(selected); }
+    else { setEnd(selected); }
+  };
+
+  const days = [];
+  for (let i = 0; i < firstDay; i++) days.push(null);
+  for (let i = 1; i <= daysInMonth; i++) days.push(i);
+
+  const isSelected = (day) => {
+    if (!day) return false;
+    const d = new Date(year, month, day);
+    if (start && d.getTime() === start.getTime()) return true;
+    if (end && d.getTime() === end.getTime()) return true;
+    if (start && end && d > start && d < end) return true;
+    return false;
+  };
+
+  return (
+    <View style={styles.calendarContainer}>
+      <View style={styles.calendarHeader}>
+        <TouchableOpacity onPress={() => setCurrDate(new Date(year, month - 1))}><Text style={styles.cyanText}>◀</Text></TouchableOpacity>
+        <Text style={{color:'#FFF', fontWeight:'bold'}}>{year}年 {month + 1}月</Text>
+        <TouchableOpacity onPress={() => setCurrDate(new Date(year, month + 1))}><Text style={styles.cyanText}>▶</Text></TouchableOpacity>
+      </View>
+      <View style={styles.weekRow}>{['日','一','二','三','四','五','六'].map(d => <Text key={d} style={styles.weekText}>{d}</Text>)}</View>
+      <View style={styles.daysGrid}>
+        {days.map((day, idx) => (
+          <TouchableOpacity key={idx} disabled={!day} onPress={() => handleDayPress(day)} style={[styles.dayBox, isSelected(day) && styles.dayBoxActive]}>
+            <Text style={{color: day ? (isSelected(day) ? '#000' : '#FFF') : 'transparent'}}>{day}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <View style={styles.calendarFooter}>
+        <TouchableOpacity style={styles.confirmBtn} onPress={() => { if (start && end) { onSelectRange({ start, end }); onClose(); } else { Alert.alert("提示", "請選擇範圍"); } }}>
+          <Text style={{fontWeight:'bold'}}>確定選擇</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onClose}><Text style={{color:'#AAA', marginTop:10}}>取消</Text></TouchableOpacity>
+      </View>
+    </View>
+  );
+};
+
+// --- 子組件: 統計圖表 (重點修正：類別排行顏色跟隨類別定義) ---
 const AnalyticsCharts = ({ filtered, catLabel, setCatLabel, dayLabel, setDayLabel }) => {
   const total = filtered.reduce((s, e) => s + e.hkdAmount, 0);
   if (total === 0) return null;
 
+  // 1. 類別數據
   const catMap = {};
   filtered.forEach(e => { catMap[e.category.id] = (catMap[e.category.id] || 0) + e.hkdAmount; });
   const catPieData = Object.keys(catMap).map(id => ({
@@ -109,37 +159,79 @@ const AnalyticsCharts = ({ filtered, catLabel, setCatLabel, dayLabel, setDayLabe
     onPress: () => setCatLabel({ title: CATEGORIES.find(c => c.id === id)?.label || '', val: catMap[id] })
   }));
 
+  // 2. 日期數據
   const dayMap = {};
-  filtered.forEach(e => { dayMap[e.day] = (dayMap[e.day] || 0) + e.hkdAmount; });
-  const maxDay = Object.entries(dayMap).reduce((a, b) => (b[1] > a[1] ? b : a), ["-", 0]);
-  const dayPieData = Object.keys(dayMap).sort((a,b)=>Number(a)-Number(b)).map((day, idx) => ({
-    key: `day-${day}`, value: dayMap[day], svg: { fill: RAINBOW_COLORS[idx % RAINBOW_COLORS.length] },
-    onPress: () => setDayLabel({ title: `${day}日`, val: dayMap[day] })
+  filtered.forEach(e => { 
+    const monthNum = e.month.replace('月', '');
+    const displayKey = `${monthNum}/${e.day}`;
+    const storageKey = `${e.year}-${e.month}-${e.day}`;
+    if(!dayMap[storageKey]) dayMap[storageKey] = { label: displayKey, amount: 0 };
+    dayMap[storageKey].amount += e.hkdAmount;
+  });
+
+  const dayPieData = Object.keys(dayMap).map((key, idx) => ({
+    key: `day-${key}`, value: dayMap[key].amount, svg: { fill: RAINBOW_COLORS[idx % RAINBOW_COLORS.length] },
+    onPress: () => setDayLabel({ title: dayMap[key].label, val: dayMap[key].amount })
   }));
+
+  const topCats = Object.keys(catMap)
+    .map(id => ({ ...CATEGORIES.find(c => c.id === id), amount: catMap[id] }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 5);
+
+  const topDates = Object.values(dayMap)
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 5);
 
   return (
     <View style={styles.chartsWrapper}>
       <View style={styles.chartFlexRow}>
         <View style={styles.chartContainer}>
           <PieChart style={{ height: 110, width: 110 }} data={catPieData} innerRadius="75%" />
-          <View style={styles.chartCenterText} pointerEvents="none">
-            <Text style={styles.centerTitle}>{catLabel.val === 0 ? "類別" : catLabel.title}</Text>
+          <TouchableOpacity style={styles.chartCenterText} onPress={() => setCatLabel({ title: '總計', val: 0 })}>
+            <Text style={styles.centerTitle}>{catLabel.val === 0 ? "類別總計" : catLabel.title}</Text>
             <Text style={styles.centerVal}>${(catLabel.val === 0 ? total : catLabel.val).toFixed(0)}</Text>
-          </View>
+          </TouchableOpacity>
         </View>
         <View style={styles.chartContainer}>
           <PieChart style={{ height: 110, width: 110 }} data={dayPieData} innerRadius="75%" />
-          <View style={styles.chartCenterText} pointerEvents="none">
-            <Text style={styles.centerTitle}>{dayLabel.val === 0 ? `最高` : dayLabel.title}</Text>
-            <Text style={styles.centerVal}>${(dayLabel.val === 0 ? maxDay[1] : dayLabel.val).toFixed(0)}</Text>
-          </View>
+          <TouchableOpacity style={styles.chartCenterText} onPress={() => setDayLabel({ title: '總計', val: 0 })}>
+            <Text style={styles.centerTitle}>{dayLabel.val === 0 ? "區間總額" : dayLabel.title}</Text>
+            <Text style={styles.centerVal}>${(dayLabel.val === 0 ? total : dayLabel.val).toFixed(0)}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20, paddingHorizontal: 5 }}>
+        {/* 左側：類別排行 (文字顏色跟隨類別定義) */}
+        <View style={{ width: '48%' }}>
+          <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold', marginBottom: 10 }}>📊 類別排行</Text>
+          {topCats.map((item, index) => (
+            <View key={item.id} style={styles.rankGridItem}>
+              <Text style={[styles.rankGridNum, {color: item.color}]}>{index + 1}</Text>
+              <Text style={[styles.rankGridLabel, {color: item.color}]}>{item.icon} {item.label}</Text>
+              <Text style={[styles.rankGridAmount, {color: item.color}]}>${item.amount.toFixed(0)}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* 右側：日期排行 (文字顏色跟隨 Rainbow 系列) */}
+        <View style={{ width: '48%' }}>
+          <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold', marginBottom: 10 }}>🗓️ 日期排行</Text>
+          {topDates.map((item, index) => (
+            <View key={index} style={styles.rankGridItem}>
+              <Text style={[styles.rankGridNum, {color: RAINBOW_COLORS[index % RAINBOW_COLORS.length]}]}>{index + 1}</Text>
+              <Text style={[styles.rankGridLabel, {color: RAINBOW_COLORS[index % RAINBOW_COLORS.length]}]}>{item.label}</Text>
+              <Text style={[styles.rankGridAmount, {color: RAINBOW_COLORS[index % RAINBOW_COLORS.length]}]}>${item.amount.toFixed(0)}</Text>
+            </View>
+          ))}
         </View>
       </View>
     </View>
   );
 };
 
-// --- 主程式 ---
+// --- 主程式 (其他邏輯與樣式完全不變) ---
 export default function Index() {
   const [activeTab, setActiveTab] = useState('RECORD');
   const [expenses, setExpenses] = useState([]);
@@ -158,7 +250,9 @@ export default function Index() {
   const [isYearlyView, setIsYearlyView] = useState(false);
   const [viewingImage, setViewingImage] = useState(null);
   const [catLabel, setCatLabel] = useState({ title: '總計', val: 0 });
-  const [dayLabel, setDayLabel] = useState({ title: '最高支出', val: 0 });
+  const [dayLabel, setDayLabel] = useState({ title: '總計', val: 0 });
+  const [customRange, setCustomRange] = useState(null); 
+  const [showCalendar, setShowCalendar] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -172,17 +266,21 @@ export default function Index() {
     })();
   }, []);
 
-  useEffect(() => { 
-    AsyncStorage.setItem('MY_EXPENSES', JSON.stringify(expenses)); 
-  }, [expenses]);
+  useEffect(() => { AsyncStorage.setItem('MY_EXPENSES', JSON.stringify(expenses)); }, [expenses]);
 
   const filteredData = useMemo(() => {
     return expenses.filter(e => {
       const matchSearch = e.item.toLowerCase().includes(searchQuery.toLowerCase()) || e.category.label.includes(searchQuery);
+      if (customRange) {
+        const d = e.timestamp ? new Date(e.timestamp) : new Date(e.year, parseInt(e.month)-1, e.day);
+        const start = new Date(customRange.start).setHours(0,0,0,0);
+        const end = new Date(customRange.end).setHours(23,59,59,999);
+        return matchSearch && d >= start && d <= end;
+      }
       const matchTime = isYearlyView ? e.year === viewYear : (e.year === viewYear && e.month === selectedMonth);
       return matchSearch && matchTime;
     });
-  }, [expenses, searchQuery, viewYear, selectedMonth, isYearlyView]);
+  }, [expenses, searchQuery, viewYear, selectedMonth, isYearlyView, customRange]);
 
   const pickImage = async (useCamera) => {
     setIsPickerVisible(false);
@@ -211,7 +309,7 @@ export default function Index() {
         id: Math.random().toString(36).substr(2, 9),
         day: now.getDate(), item: item.trim() || "未命名項目", foreignAmount: parsedAmount, hkdAmount: hkdAmount,
         category: selectedCat, currency: selectedCurr, year: now.getFullYear(), month: `${now.getMonth() + 1}月`,
-        image: capturedImage,
+        image: capturedImage, timestamp: now.getTime()
       }, ...prev]);
     }
     resetForm(); setActiveTab('OVERVIEW');
@@ -268,13 +366,22 @@ export default function Index() {
                     </TouchableOpacity>
                   </View>
 
-                  <View style={styles.monthGrid}>
-                    {MONTHS.map(m => (
-                      <TouchableOpacity key={m} onPress={() => { setSelectedMonth(m); setIsYearlyView(false); }} style={[styles.monthBox, (!isYearlyView && selectedMonth === m && styles.activeBorder)]}>
-                        <Text style={{fontSize:10, color: (!isYearlyView && selectedMonth === m) ? '#00E5FF' : '#EEE'}}>{m}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                  <TouchableOpacity style={styles.rangeBtn} onPress={() => setShowCalendar(true)}>
+                    <Text style={{color: '#00E5FF', fontWeight:'bold', fontSize: 13}}>
+                      {customRange ? `📅 ${customRange.start.toLocaleDateString()} - ${customRange.end.toLocaleDateString()}` : "📅 跨月分析 (選擇自定義範圍)"}
+                    </Text>
+                    {customRange && <TouchableOpacity onPress={() => setCustomRange(null)}><Text style={{color:'#FFF', marginLeft:10}}>✕</Text></TouchableOpacity>}
+                  </TouchableOpacity>
+
+                  {!customRange && (
+                    <View style={styles.monthGrid}>
+                      {MONTHS.map(m => (
+                        <TouchableOpacity key={m} onPress={() => { setSelectedMonth(m); setIsYearlyView(false); }} style={[styles.monthBox, (!isYearlyView && selectedMonth === m && styles.activeBorder)]}>
+                          <Text style={{fontSize:10, color: (!isYearlyView && selectedMonth === m) ? '#00E5FF' : '#EEE'}}>{m}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
 
                   {isYearlyView ? (
                     <View style={styles.yearlyListContainer}>
@@ -295,12 +402,20 @@ export default function Index() {
                   ) : (
                     <>
                       <AnalyticsCharts filtered={filteredData} catLabel={catLabel} setCatLabel={setCatLabel} dayLabel={dayLabel} setDayLabel={setDayLabel} />
-                      {Object.keys(filteredData.reduce((g, e) => { (g[e.day] = g[e.day] || []).push(e); return g; }, {})).sort((a,b)=>b-a).map(day => {
-                        const dayItems = filteredData.filter(e => e.day === Number(day));
+                      {Object.keys(filteredData.reduce((g, e) => { 
+                        const key = `${e.month}-${e.day}`;
+                        (g[key] = g[key] || []).push(e); return g; 
+                      }, {})).sort((a,b) => {
+                        const [am, ad] = a.split('-').map(v => parseInt(v));
+                        const [bm, bd] = b.split('-').map(v => parseInt(v));
+                        return bm !== am ? bm - am : bd - ad;
+                      }).map(dateKey => {
+                        const dayItems = filteredData.filter(e => `${e.month}-${e.day}` === dateKey);
+                        const [m, d] = dateKey.split('-');
                         return (
-                          <View key={`day-${day}`} style={styles.dayGroupWrapper}>
+                          <View key={`day-${dateKey}`} style={styles.dayGroupWrapper}>
                             <View style={styles.dayHeader}>
-                              <Text style={styles.dayHeaderText}>{day}日</Text>
+                              <Text style={styles.dayHeaderText}>{m}{d}日</Text>
                               <Text style={styles.daySumText}>日計: ${dayItems.reduce((s, e) => s + e.hkdAmount, 0).toFixed(0)}</Text>
                             </View>
                             {dayItems.map(exp => (
@@ -348,6 +463,10 @@ export default function Index() {
           <Image source={{ uri: viewingImage }} style={styles.fullImage} resizeMode="contain" />
         </TouchableOpacity>
       </Modal>
+
+      <Modal visible={showCalendar} transparent animationType="fade">
+        <View style={styles.modalBg}><CustomCalendar onSelectRange={setCustomRange} onClose={() => setShowCalendar(false)} /></View>
+      </Modal>
     </View>
   );
 }
@@ -355,18 +474,19 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' }, 
   bgImage: { flex: 1, width: '100%' }, 
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)' }, // 👈 背景遮罩再較淺少少
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)' },
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
   scrollContent: { padding: 20, paddingTop: 40 }, 
   headerTitle: { fontSize: 26, fontWeight: 'bold', color: '#00E5FF', textShadowColor: '#000', textShadowRadius: 3 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   searchContainer: { flexDirection: 'row', marginBottom: 15, alignItems: 'center' },
   searchInput: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', color: '#FFF', padding: 12, borderRadius: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  rangeBtn: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.6)', padding: 12, borderRadius: 15, marginBottom: 15, borderWidth: 1, borderColor: '#00E5FF', justifyContent: 'center', alignItems: 'center' },
   yearSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 10, padding: 8 },
   yearText: { color: '#FFF', marginHorizontal: 12, fontWeight: 'bold' }, 
   cyanText: { color: '#00E5FF', fontSize: 18 },
   yearlyToggle: { backgroundColor: 'rgba(0,229,255,0.15)', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#00E5FF' },
-  cyberCard: { backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 25, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }, // 👈 改為 0.6 透明
+  cyberCard: { backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 25, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   formStatusText: {color:'#00E5FF', marginBottom:10, fontWeight:'bold'},
   currBtnFull: { width: '100%', padding: 14, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   currGridSmall: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
@@ -388,17 +508,21 @@ const styles = StyleSheet.create({
   monthGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 15 },
   monthBox: { width: '15%', paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 10, alignItems: 'center', marginBottom: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   activeBorder: { borderColor: '#00E5FF', backgroundColor: 'rgba(0,229,255,0.1)' },
-  chartsWrapper: { backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 25, padding: 15, marginBottom: 20 }, // 👈 改為 0.6 透明
+  chartsWrapper: { backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 25, padding: 15, marginBottom: 20 },
   chartFlexRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
   chartContainer: { alignItems: 'center', justifyContent: 'center' },
-  chartCenterText: { position: 'absolute', alignItems: 'center', justifyContent: 'center', width: 70 },
+  chartCenterText: { position: 'absolute', alignItems: 'center', justifyContent: 'center', width: 80, height: 80 },
   centerTitle: { color: '#EEE', fontSize: 9, textAlign: 'center' }, 
   centerVal: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
+  rankGridItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', padding: 8, borderRadius: 10, marginBottom: 5 },
+  rankGridNum: { fontWeight: 'bold', fontSize: 10, width: 12 },
+  rankGridLabel: { fontSize: 10, flex: 1, marginLeft: 5 },
+  rankGridAmount: { fontSize: 10, fontWeight: 'bold' },
   dayGroupWrapper: { marginBottom: 20 },
   dayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderLeftWidth: 3, borderLeftColor: '#00E5FF', backgroundColor: 'rgba(0,0,0,0.5)', marginBottom: 8, borderRadius: 4 },
   dayHeaderText: { color: '#00E5FF', fontWeight: 'bold', fontSize: 14 },
   daySumText: { color: '#EEE', fontSize: 12 },
-  listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 12, borderRadius: 18, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }, // 👈 改為 0.5 透明
+  listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 12, borderRadius: 18, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   listThumb: { width: 35, height: 35, borderRadius: 5, marginRight: 10 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
   fullImage: { width: '90%', height: '80%' },
@@ -419,6 +543,15 @@ const styles = StyleSheet.create({
   navActive: { color: '#00E5FF', fontWeight: 'bold' },
   pickerCard: { backgroundColor: '#111', width: '80%', padding: 25, borderRadius: 25, borderWidth: 1, borderColor: '#00E5FF', alignItems: 'center' },
   pickerTitle: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 20 },
-  pickerBtn: { width: '100%', backgroundColor: '#222', padding: 15, borderRadius: 15, alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: '#444' },
-  pickerBtnText: { color: '#00E5FF', fontSize: 15, fontWeight: '500' }
+  pickerBtn: { backgroundColor: 'rgba(255,255,255,0.1)', width: '100%', padding: 15, borderRadius: 15, alignItems: 'center', marginBottom: 10 },
+  pickerBtnText: { color: '#FFF', fontWeight: 'bold' },
+  calendarContainer: { backgroundColor: '#111', padding: 20, borderRadius: 30, width: '90%', borderWidth: 1, borderColor: '#00E5FF' },
+  calendarHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  weekRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
+  weekText: { color: '#666', width: '14.2%', textAlign: 'center', fontSize: 12 },
+  daysGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  dayBox: { width: '14.2%', height: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 5, borderRadius: 10 },
+  dayBoxActive: { backgroundColor: '#00E5FF' },
+  calendarFooter: { alignItems: 'center', marginTop: 20 },
+  confirmBtn: { backgroundColor: '#00E5FF', paddingHorizontal: 30, paddingVertical: 12, borderRadius: 20 }
 });
