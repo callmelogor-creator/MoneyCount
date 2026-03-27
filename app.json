@@ -8,7 +8,6 @@
     "scheme": "moneycount",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
-    "nodeModulesValidation": false,
     "ios": {
       "supportsTablet": true
     },
