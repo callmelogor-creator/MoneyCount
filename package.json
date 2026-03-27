@@ -45,8 +45,11 @@
     "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2"
   },
+  "overrides": {
+    "react-native-reanimated": "~4.1.1"
+  },
   "resolutions": {
-	"react-native-reanimated": "~4.1.1",
+    "react-native-reanimated": "~4.1.1",
     "react-native-worklets-core": "^1.6.3"
   },
   "private": true

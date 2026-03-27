@@ -3,8 +3,7 @@ module.exports = function (api) {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
-      // 只留呢一個，睇吓佢仲撞唔撞！
-      'react-native-reanimated/plugin',
+      'react-native-reanimated/plugin', // 淨係要呢個，其他全部唔要住
     ],
   };
 };
