@@ -8,7 +8,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 
 // --- 常數定義 ---
-// Snack 用戶請注意：如果你有上傳圖到 assets，用 require；如果冇，可以換成 {uri: '網址'}
 const MY_CUSTOM_BACKGROUND = require('../../assets/bg.jpg'); 
 
 const RAINBOW_COLORS = ['#FF4081', '#00E5FF', '#76FF03', '#AA00FF', '#FFAB00', '#2979FF', '#EA80FC', '#D4E157', '#00BFA5', '#FF5252'];
@@ -24,16 +23,9 @@ const CATEGORIES = [
   { id: '9', label: '按摩', icon: '💆', color: '#00BFA5' },
   { id: '10', label: '雜項', icon: '🫧', color: '#90A4AE' },
 ];
-
-// 優化幣種顯示文字
 const CURRENCY_LIST = [
-  { code: 'HKD', flag: '🇭🇰', name: '港幣' }, 
-  { code: 'JPY', flag: '🇯🇵', name: '日元' }, 
-  { code: 'KRW', flag: '🇰🇷', name: '韓圓' }, 
-  { code: 'TWD', flag: '🇹🇼', name: '台幣' }, 
-  { code: 'THB', flag: '🇹🇭', name: '泰銖' }, 
-  { code: 'USD', flag: '🇺🇸', name: '美金' }, 
-  { code: 'CNY', flag: '🇨🇳', name: '人民幣' }
+  { code: 'HKD', flag: '🇭🇰' }, { code: 'JPY', flag: '🇯🇵' }, { code: 'KRW', flag: '🇰🇷' }, 
+  { code: 'TWD', flag: '🇹🇼' }, { code: 'THB', flag: '🇹🇭' }, { code: 'USD', flag: '🇺🇸' }, { code: 'CNY', flag: '🇨🇳' }
 ];
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -61,7 +53,6 @@ const ExpenseForm = ({
       <View style={styles.currGridSmall}>
         {CURRENCY_LIST.slice(1).map(c => (
           <TouchableOpacity key={c.code} onPress={() => setSelectedCurr(c)} style={[styles.currBtnSmall, selectedCurr.code === c.code && styles.currActive]}>
-            {/* 加入自動縮放文字，解決 JPY/CNY 消失問題 */}
             <Text 
               style={[styles.currTextSmall, selectedCurr.code === c.code && {color:'#00E5FF'}]}
               numberOfLines={1}
@@ -265,7 +256,7 @@ export default function Index() {
               ) : (
                 <>
                   <View style={styles.searchContainer}>
-                    <TextInput style={styles.searchInput} placeholder="🔍 搜尋..." placeholderTextColor="#BBB" value={searchQuery} onChangeText={setSearchQuery} />
+                    <TextInput style={styles.searchInput} placeholder="🔍 搜尋項目/類別..." placeholderTextColor="#BBB" value={searchQuery} onChangeText={setSearchQuery} />
                   </View>
 
                   <View style={styles.headerRow}>
@@ -302,7 +293,7 @@ export default function Index() {
                       })}
                     </View>
                   ) : filteredData.length === 0 ? (
-                    <Text style={styles.emptyText}>冇符合記錄 🫧</Text>
+                    <Text style={{color:'#DDD', textAlign:'center', marginTop:40, textShadowColor: '#000', textShadowRadius: 2}}>冇符合記錄 🫧</Text>
                   ) : (
                     <>
                       <AnalyticsCharts filtered={filteredData} catLabel={catLabel} setCatLabel={setCatLabel} dayLabel={dayLabel} setDayLabel={setDayLabel} />
@@ -318,11 +309,11 @@ export default function Index() {
                               <View key={exp.id} style={styles.listItem}>
                                 <Text style={{fontSize: 20}}>{exp.category.icon}</Text>
                                 <View style={{flex:1, marginLeft:12}}>
-                                  <Text style={styles.itemText}>{exp.item}</Text>
-                                  <Text style={styles.subText}>{exp.currency.code} {exp.foreignAmount} ({exp.category.label})</Text>
+                                  <Text style={{color: '#FFF', fontWeight: 'bold', textShadowColor: '#000', textShadowRadius: 1}}>{exp.item}</Text>
+                                  <Text style={{color:'#CCC', fontSize:11}}>{exp.currency.code} {exp.foreignAmount} ({exp.category.label})</Text>
                                 </View>
                                 {exp.image && <TouchableOpacity onPress={() => setViewingImage(exp.image)}><Image source={{ uri: exp.image }} style={styles.listThumb} /></TouchableOpacity>}
-                                <Text style={[styles.amountText, {color: exp.category.color}]}>${exp.hkdAmount.toFixed(0)}</Text>
+                                <Text style={{color: exp.category.color, fontWeight:'bold', marginRight:10, fontSize:16, textShadowColor: '#000', textShadowRadius: 1}}>${exp.hkdAmount.toFixed(0)}</Text>
                                 <TouchableOpacity onPress={() => startEdit(exp)} style={{padding:5}}><Text>✏️</Text></TouchableOpacity>
                                 <TouchableOpacity onPress={() => handleDelete(exp.id)} style={{padding:5}}><Text>🗑️</Text></TouchableOpacity>
                               </View>
@@ -366,41 +357,11 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' }, 
   bgImage: { flex: 1, width: '100%' }, 
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }, // 加強遮罩，令字更清楚
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }, 
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
   scrollContent: { padding: 20, paddingTop: 40 }, 
-  headerTitle: { 
-    fontSize: 26, fontWeight: 'bold', color: '#00E5FF', 
-    textShadowColor: '#000', textShadowOffset: {width: 1, height: 1}, textShadowRadius: 4 
-  },
-  cyberCard: { backgroundColor: 'rgba(0,0,0,0.8)', borderRadius: 25, padding: 20, borderWidth: 1, borderColor: '#555' },
-  formStatusText: {color:'#00E5FF', marginBottom:10, fontWeight:'bold', textShadowColor:'#000', textShadowRadius:2},
-  currBtnFull: { width: '100%', padding: 14, backgroundColor: '#111', borderRadius: 12, alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: '#555' },
-  currGridSmall: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
-  currBtnSmall: { width: '31%', padding: 10, backgroundColor: '#111', borderRadius: 10, alignItems: 'center', marginBottom: 8, borderWidth: 1, borderColor: '#333' },
-  currActive: { borderColor: '#00E5FF' }, 
-  currText: { color: '#AAA', fontWeight: 'bold' }, 
-  currTextSmall: { color: '#AAA', fontSize: 11, fontWeight: '600' }, // 加粗字體
-  rateBox: { backgroundColor: 'rgba(0,229,255,0.1)', padding: 10, borderRadius: 10, marginBottom: 15 },
-  rateText: { color: '#00E5FF', fontSize: 12, textAlign: 'center' },
-  cyberInput: { backgroundColor: '#FFF', color: '#000', padding: 15, borderRadius: 15, marginBottom: 10, fontSize: 16 },
-  addBtn: { backgroundColor: '#00E5FF', padding: 18, borderRadius: 20, alignItems: 'center' },
-  addBtnText: { color: '#000', fontWeight: 'bold', fontSize: 14 },
-  chartsWrapper: { backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: 25, padding: 15, marginBottom: 20 },
-  chartCenterText: { position: 'absolute', alignItems: 'center', justifyContent: 'center', width: 70 },
-  centerTitle: { color: '#DDD', fontSize: 9, textShadowColor: '#000', textShadowRadius: 2 }, 
-  centerVal: { color: '#FFF', fontSize: 12, fontWeight: 'bold', textShadowColor: '#000', textShadowRadius: 2 },
-  listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.7)', padding: 12, borderRadius: 18, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
-  itemText: { color: '#FFF', fontWeight: 'bold', textShadowColor: '#000', textShadowRadius: 3 },
-  subText: { color: '#BBB', fontSize: 11 },
-  amountText: { fontWeight:'bold', marginRight:10, fontSize:16, textShadowColor: '#000', textShadowRadius: 3 },
-  emptyText: {color:'#DDD', textAlign:'center', marginTop:40, textShadowColor: '#000', textShadowRadius: 3},
-  nav: { position: 'absolute', bottom: 0, width: '100%', flexDirection: 'row', height: 90, backgroundColor: 'rgba(0,0,0,0.95)', borderTopWidth: 1, borderColor: '#444', paddingBottom: 20 },
-  navBtn: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  navText: { color: '#888', fontSize: 12 }, 
-  navActive: { color: '#00E5FF', fontWeight: 'bold' },
-  // ... 其他樣式保持不變
-  header: { marginBottom: 15 },
+  header: { marginBottom: 15 }, 
+  headerTitle: { fontSize: 26, fontWeight: 'bold', color: '#00E5FF', textShadowColor: '#000', textShadowRadius: 3 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   searchContainer: { flexDirection: 'row', marginBottom: 15, alignItems: 'center' },
   searchInput: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', color: '#FFF', padding: 12, borderRadius: 15, borderWidth: 1, borderColor: '#666' },
@@ -408,21 +369,39 @@ const styles = StyleSheet.create({
   yearText: { color: '#FFF', marginHorizontal: 12, fontWeight: 'bold' }, 
   cyanText: { color: '#00E5FF', fontSize: 18 },
   yearlyToggle: { backgroundColor: 'rgba(0,229,255,0.2)', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#00E5FF' },
+  cyberCard: { backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: 25, padding: 20, borderWidth: 1, borderColor: '#555' },
+  formStatusText: {color:'#00E5FF', marginBottom:10, fontWeight:'bold'},
+  currBtnFull: { width: '100%', padding: 14, backgroundColor: '#111', borderRadius: 12, alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: '#555' },
+  currGridSmall: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
+  currBtnSmall: { width: '31%', padding: 10, backgroundColor: '#111', borderRadius: 10, alignItems: 'center', marginBottom: 8, borderWidth: 1, borderColor: '#333' },
+  currActive: { borderColor: '#00E5FF' }, 
+  currText: { color: '#AAA', fontWeight: 'bold' }, 
+  currTextSmall: { color: '#AAA', fontSize: 11 },
+  rateBox: { backgroundColor: 'rgba(0,229,255,0.1)', padding: 10, borderRadius: 10, marginBottom: 15 },
+  rateText: { color: '#00E5FF', fontSize: 12, textAlign: 'center' },
+  cyberInput: { backgroundColor: '#FFF', color: '#000', padding: 15, borderRadius: 15, marginBottom: 10, fontSize: 16 },
   photoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   attachmentBtn: { backgroundColor: '#333', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#00E5FF', marginRight: 15 },
   miniPreview: { width: 45, height: 45, borderRadius: 8, borderWidth: 1, borderColor: '#00E5FF' },
   catGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
   catItem: { width: '18%', aspectRatio: 1, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: '#444' },
   catLabel: { fontSize: 9, color: '#DDD', marginTop: 4, textAlign: 'center' },
+  addBtn: { backgroundColor: '#00E5FF', padding: 18, borderRadius: 20, alignItems: 'center' },
+  addBtnText: { color: '#000', fontWeight: 'bold', fontSize: 14, textAlign: 'center' },
   monthGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 15 },
   monthBox: { width: '15%', paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, alignItems: 'center', marginBottom: 6, borderWidth: 1, borderColor: '#444' },
   activeBorder: { borderColor: '#00E5FF', backgroundColor: 'rgba(0,229,255,0.1)' },
+  chartsWrapper: { backgroundColor: 'rgba(0,0,0,0.8)', borderRadius: 25, padding: 15, marginBottom: 20 },
   chartFlexRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
   chartContainer: { alignItems: 'center', justifyContent: 'center' },
+  chartCenterText: { position: 'absolute', alignItems: 'center', justifyContent: 'center', width: 70 },
+  centerTitle: { color: '#DDD', fontSize: 9, textAlign: 'center' }, 
+  centerVal: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
   dayGroupWrapper: { marginBottom: 20 },
   dayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderLeftWidth: 3, borderLeftColor: '#00E5FF', backgroundColor: 'rgba(0,0,0,0.6)', marginBottom: 8, borderRadius: 4 },
   dayHeaderText: { color: '#00E5FF', fontWeight: 'bold', fontSize: 14 },
   daySumText: { color: '#EEE', fontSize: 12 },
+  listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.65)', padding: 12, borderRadius: 18, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   listThumb: { width: 35, height: 35, borderRadius: 5, marginRight: 10 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
   fullImage: { width: '90%', height: '80%' },
@@ -432,6 +411,20 @@ const styles = StyleSheet.create({
   barTrack: { flex: 1, height: 12, backgroundColor: '#222', borderRadius: 6, marginHorizontal: 12, overflow: 'hidden' },
   barFill: { height: '100%' }, 
   amountLabel: { color: '#EEE', width: 65, textAlign: 'right', fontSize: 12 },
+  nav: { 
+    position: 'absolute', 
+    bottom: 0, 
+    width: '100%', 
+    flexDirection: 'row', 
+    height: Platform.OS === 'android' ? 100 : 90, 
+    paddingBottom: Platform.OS === 'android' ? 25 : 0, 
+    backgroundColor: 'rgba(0,0,0,0.9)', 
+    borderTopWidth: 1, 
+    borderColor: '#444' 
+  },
+  navBtn: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  navText: { color: '#AAA', fontSize: 12 }, 
+  navActive: { color: '#00E5FF', fontWeight: 'bold' },
   pickerCard: { backgroundColor: '#111', width: '80%', padding: 25, borderRadius: 25, borderWidth: 1, borderColor: '#00E5FF', alignItems: 'center' },
   pickerTitle: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 20 },
   pickerBtn: { width: '100%', backgroundColor: '#222', padding: 15, borderRadius: 15, alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: '#444' },
