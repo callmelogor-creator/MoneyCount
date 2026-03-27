@@ -53,13 +53,17 @@ const ExpenseForm = ({
       <View style={styles.currGridSmall}>
         {CURRENCY_LIST.slice(1).map(c => (
           <TouchableOpacity key={c.code} onPress={() => setSelectedCurr(c)} style={[styles.currBtnSmall, selectedCurr.code === c.code && styles.currActive]}>
-            <Text 
-              style={[styles.currTextSmall, selectedCurr.code === c.code && {color:'#00E5FF'}]} 
-              numberOfLines={1} 
-              adjustsFontSizeToFit // 👈 確保 CN、JPY 等所有細掣唔會爆字或消失
-            >
-              {c.flag} {c.code}
-            </Text>
+            <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}>
+              <Text style={{fontSize: 12}}>{c.flag}</Text>
+              <Text 
+                style={[styles.currTextSmall, selectedCurr.code === c.code && {color:'#00E5FF'}]} 
+                numberOfLines={1} 
+                adjustsFontSizeToFit
+                minimumFontScale={0.5}
+              >
+                {" " + c.code}
+              </Text>
+            </View>
           </TouchableOpacity>
         ))}
       </View>
@@ -70,8 +74,8 @@ const ExpenseForm = ({
         </View>
       )}
 
-      <TextInput style={styles.cyberInput} placeholder="買咗咩？" placeholderTextColor="#999" value={item} onChangeText={setItem} />
-      <TextInput style={styles.cyberInput} placeholder="金額" keyboardType="numeric" placeholderTextColor="#999" value={amount} onChangeText={setAmount} />
+      <TextInput style={styles.cyberInput} placeholder="買咗咩？" placeholderTextColor="#666" value={item} onChangeText={setItem} />
+      <TextInput style={styles.cyberInput} placeholder="金額" keyboardType="numeric" placeholderTextColor="#666" value={amount} onChangeText={setAmount} />
       
       <View style={styles.photoRow}>
         <TouchableOpacity style={styles.attachmentBtn} onPress={() => setIsPickerVisible(true)}><Text style={{color:'#FFF'}}>📷 附件</Text></TouchableOpacity>
@@ -80,7 +84,7 @@ const ExpenseForm = ({
 
       <View style={styles.catGrid}>
         {CATEGORIES.map(cat => (
-          <TouchableOpacity key={cat.id} onPress={() => setSelectedCat(cat)} style={[styles.catItem, selectedCat.id === cat.id && {borderColor: cat.color, backgroundColor: 'rgba(255,255,255,0.1)'}]}>
+          <TouchableOpacity key={cat.id} onPress={() => setSelectedCat(cat)} style={[styles.catItem, selectedCat.id === cat.id && {borderColor: cat.color, backgroundColor: 'rgba(255,255,255,0.15)'}]}>
             <Text style={{fontSize:18}}>{cat.icon}</Text>
             <Text style={styles.catLabel}>{cat.label}</Text>
           </TouchableOpacity>
@@ -88,7 +92,7 @@ const ExpenseForm = ({
       </View>
 
       <TouchableOpacity style={styles.addBtn} onPress={onSave}><Text style={styles.addBtnText}>{getButtonText()}</Text></TouchableOpacity>
-      {editingId && <TouchableOpacity onPress={onReset} style={{marginTop:15, alignItems:'center'}}><Text style={{color:'#AAA'}}>取消修改</Text></TouchableOpacity>}
+      {editingId && <TouchableOpacity onPress={onReset} style={{marginTop:15, alignItems:'center'}}><Text style={{color:'#EEE'}}>取消修改</Text></TouchableOpacity>}
     </View>
   );
 };
@@ -250,7 +254,7 @@ export default function Index() {
               ) : (
                 <>
                   <View style={styles.searchContainer}>
-                    <TextInput style={styles.searchInput} placeholder="🔍 搜尋項目/類別..." placeholderTextColor="#BBB" value={searchQuery} onChangeText={setSearchQuery} />
+                    <TextInput style={styles.searchInput} placeholder="🔍 搜尋項目/類別..." placeholderTextColor="#CCC" value={searchQuery} onChangeText={setSearchQuery} />
                   </View>
 
                   <View style={styles.headerRow}>
@@ -304,7 +308,7 @@ export default function Index() {
                                 <Text style={{fontSize: 20}}>{exp.category.icon}</Text>
                                 <View style={{flex:1, marginLeft:12}}>
                                   <Text style={{color: exp.category.color, fontWeight: 'bold', textShadowColor: '#000', textShadowRadius: 1}}>{exp.item}</Text>
-                                  <Text style={{color: exp.category.color, opacity: 0.8, fontSize:11}}>{exp.currency.code} {exp.foreignAmount} ({exp.category.label})</Text>
+                                  <Text style={{color: exp.category.color, opacity: 0.9, fontSize:11}}>{exp.currency.code} {exp.foreignAmount} ({exp.category.label})</Text>
                                 </View>
                                 {exp.image && <TouchableOpacity onPress={() => setViewingImage(exp.image)}><Image source={{ uri: exp.image }} style={styles.listThumb} /></TouchableOpacity>}
                                 <Text style={{color: exp.category.color, fontWeight:'bold', marginRight:10, fontSize:16, textShadowColor: '#000', textShadowRadius: 1}}>${exp.hkdAmount.toFixed(0)}</Text>
@@ -351,64 +355,64 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' }, 
   bgImage: { flex: 1, width: '100%' }, 
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }, 
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.3)' }, // 👈 背景遮罩再較淺少少
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
   scrollContent: { padding: 20, paddingTop: 40 }, 
   headerTitle: { fontSize: 26, fontWeight: 'bold', color: '#00E5FF', textShadowColor: '#000', textShadowRadius: 3 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   searchContainer: { flexDirection: 'row', marginBottom: 15, alignItems: 'center' },
-  searchInput: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', color: '#FFF', padding: 12, borderRadius: 15, borderWidth: 1, borderColor: '#666' },
-  yearSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, padding: 8 },
+  searchInput: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', color: '#FFF', padding: 12, borderRadius: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  yearSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 10, padding: 8 },
   yearText: { color: '#FFF', marginHorizontal: 12, fontWeight: 'bold' }, 
   cyanText: { color: '#00E5FF', fontSize: 18 },
-  yearlyToggle: { backgroundColor: 'rgba(0,229,255,0.2)', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#00E5FF' },
-  cyberCard: { backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: 25, padding: 20, borderWidth: 1, borderColor: '#555' },
+  yearlyToggle: { backgroundColor: 'rgba(0,229,255,0.15)', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#00E5FF' },
+  cyberCard: { backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 25, padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }, // 👈 改為 0.6 透明
   formStatusText: {color:'#00E5FF', marginBottom:10, fontWeight:'bold'},
-  currBtnFull: { width: '100%', padding: 14, backgroundColor: '#111', borderRadius: 12, alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: '#555' },
+  currBtnFull: { width: '100%', padding: 14, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 12, alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
   currGridSmall: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
-  currBtnSmall: { width: '31%', padding: 10, backgroundColor: '#111', borderRadius: 10, alignItems: 'center', marginBottom: 8, borderWidth: 1, borderColor: '#333' },
-  currActive: { borderColor: '#00E5FF' }, 
-  currText: { color: '#AAA', fontWeight: 'bold' }, 
-  currTextSmall: { color: '#AAA', fontSize: 11 },
+  currBtnSmall: { width: '32%', height: 45, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  currActive: { borderColor: '#00E5FF', backgroundColor: 'rgba(0,229,255,0.1)' }, 
+  currText: { color: '#EEE', fontWeight: 'bold' }, 
+  currTextSmall: { color: '#EEE', fontSize: 12, fontWeight: 'bold', marginLeft: 2 },
   rateBox: { backgroundColor: 'rgba(0,229,255,0.1)', padding: 10, borderRadius: 10, marginBottom: 15 },
   rateText: { color: '#00E5FF', fontSize: 12, textAlign: 'center' },
-  cyberInput: { backgroundColor: '#FFF', color: '#000', padding: 15, borderRadius: 15, marginBottom: 10, fontSize: 16 },
+  cyberInput: { backgroundColor: 'rgba(255,255,255,0.9)', color: '#000', padding: 15, borderRadius: 15, marginBottom: 10, fontSize: 16 },
   photoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
-  attachmentBtn: { backgroundColor: '#333', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#00E5FF', marginRight: 15 },
+  attachmentBtn: { backgroundColor: 'rgba(0,0,0,0.5)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#00E5FF', marginRight: 15 },
   miniPreview: { width: 45, height: 45, borderRadius: 8, borderWidth: 1, borderColor: '#00E5FF' },
   catGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
-  catItem: { width: '18%', aspectRatio: 1, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: '#444' },
-  catLabel: { fontSize: 9, color: '#DDD', marginTop: 4, textAlign: 'center' },
+  catItem: { width: '18%', aspectRatio: 1, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  catLabel: { fontSize: 9, color: '#EEE', marginTop: 4, textAlign: 'center' },
   addBtn: { backgroundColor: '#00E5FF', padding: 18, borderRadius: 20, alignItems: 'center' },
   addBtnText: { color: '#000', fontWeight: 'bold', fontSize: 14, textAlign: 'center' },
   monthGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 15 },
-  monthBox: { width: '15%', paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, alignItems: 'center', marginBottom: 6, borderWidth: 1, borderColor: '#444' },
+  monthBox: { width: '15%', paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 10, alignItems: 'center', marginBottom: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   activeBorder: { borderColor: '#00E5FF', backgroundColor: 'rgba(0,229,255,0.1)' },
-  chartsWrapper: { backgroundColor: 'rgba(0,0,0,0.8)', borderRadius: 25, padding: 15, marginBottom: 20 },
+  chartsWrapper: { backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 25, padding: 15, marginBottom: 20 }, // 👈 改為 0.6 透明
   chartFlexRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
   chartContainer: { alignItems: 'center', justifyContent: 'center' },
   chartCenterText: { position: 'absolute', alignItems: 'center', justifyContent: 'center', width: 70 },
-  centerTitle: { color: '#DDD', fontSize: 9, textAlign: 'center' }, 
+  centerTitle: { color: '#EEE', fontSize: 9, textAlign: 'center' }, 
   centerVal: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
   dayGroupWrapper: { marginBottom: 20 },
-  dayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderLeftWidth: 3, borderLeftColor: '#00E5FF', backgroundColor: 'rgba(0,0,0,0.6)', marginBottom: 8, borderRadius: 4 },
+  dayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderLeftWidth: 3, borderLeftColor: '#00E5FF', backgroundColor: 'rgba(0,0,0,0.5)', marginBottom: 8, borderRadius: 4 },
   dayHeaderText: { color: '#00E5FF', fontWeight: 'bold', fontSize: 14 },
   daySumText: { color: '#EEE', fontSize: 12 },
-  listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.65)', padding: 12, borderRadius: 18, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)', padding: 12, borderRadius: 18, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }, // 👈 改為 0.5 透明
   listThumb: { width: 35, height: 35, borderRadius: 5, marginRight: 10 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
   fullImage: { width: '90%', height: '80%' },
-  yearlyListContainer: { backgroundColor: 'rgba(0,0,0,0.8)', borderRadius: 25, padding: 20 },
+  yearlyListContainer: { backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 25, padding: 20 },
   yearlyRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   monthLabel: { color: '#FFF', width: 40 },
-  barTrack: { flex: 1, height: 12, backgroundColor: '#222', borderRadius: 6, marginHorizontal: 12, overflow: 'hidden' },
+  barTrack: { flex: 1, height: 12, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 6, marginHorizontal: 12, overflow: 'hidden' },
   barFill: { height: '100%' }, 
   amountLabel: { color: '#EEE', width: 65, textAlign: 'right', fontSize: 12 },
   nav: { 
     position: 'absolute', bottom: 0, width: '100%', flexDirection: 'row', 
     height: Platform.OS === 'android' ? 100 : 90, 
     paddingBottom: Platform.OS === 'android' ? 25 : 0, 
-    backgroundColor: 'rgba(0,0,0,0.9)', borderTopWidth: 1, borderColor: '#444' 
+    backgroundColor: 'rgba(0,0,0,0.8)', borderTopWidth: 1, borderColor: 'rgba(255,255,255,0.1)' 
   },
   navBtn: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   navText: { color: '#AAA', fontSize: 12 }, 
