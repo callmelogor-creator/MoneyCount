@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 
 // --- 常數設定 ---
-const MY_CUSTOM_BACKGROUND = require('./assets/bg.jpg'); 
+const MY_CUSTOM_BACKGROUND = require('../../assets/bg.jpg'); 
 
 const RAINBOW_COLORS = [
   '#FF4081', '#00E5FF', '#76FF03', '#AA00FF', '#FFAB00', 
