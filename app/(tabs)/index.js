@@ -8,7 +8,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 
 // --- 常數定義 ---
-const WINTER_WALLPAPER_BASE64 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/AARCAKAAoADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZnaGlqc3R1dnd4eXqGhcXGHRgpGic4SFhoeIiZipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/9oADAMBA Ratio=2:3";
+// 請確保你的圖片路徑正確，檔名為 bg.jpg
+const MY_CUSTOM_BACKGROUND = require('../../assets/bg.jpg'); 
+
 const RAINBOW_COLORS = ['#FF4081', '#00E5FF', '#76FF03', '#AA00FF', '#FFAB00', '#2979FF', '#EA80FC', '#D4E157', '#00BFA5', '#FF5252'];
 const CATEGORIES = [
   { id: '1', label: '食飲', icon: '🍱', color: '#00E5FF' },
@@ -169,7 +171,6 @@ export default function Index() {
     AsyncStorage.setItem('MY_EXPENSES', JSON.stringify(expenses)); 
   }, [expenses]);
 
-  // 篩選邏輯 (Memoized)
   const filteredData = useMemo(() => {
     return expenses.filter(e => {
       const matchSearch = e.item.toLowerCase().includes(searchQuery.toLowerCase()) || e.category.label.includes(searchQuery);
@@ -232,139 +233,144 @@ export default function Index() {
 
   return (
     <View style={styles.container}>
-      <ImageBackground source={{ uri: WINTER_WALLPAPER_BASE64 }} style={styles.bgImage}>
-        <SafeAreaView style={{flex:1}}>
-          <ScrollView contentContainerStyle={styles.scrollContent}>
-            <View style={styles.header}><Text style={styles.headerTitle}>MoneyCount 💸</Text></View>
+      <ImageBackground source={MY_CUSTOM_BACKGROUND} style={styles.bgImage}>
+        {/* 黑色半透明遮罩層 */}
+        <View style={styles.overlay}>
+          <SafeAreaView style={{flex:1}}>
+            <ScrollView contentContainerStyle={styles.scrollContent}>
+              <View style={styles.header}>
+                <Text style={styles.headerTitle}>MoneyCount 💸</Text>
+              </View>
 
-            {activeTab === 'RECORD' ? (
-              <ExpenseForm 
-                editingId={editingId} item={item} setItem={setItem} 
-                amount={amount} setAmount={setAmount} 
-                selectedCurr={selectedCurr} setSelectedCurr={setSelectedCurr}
-                selectedCat={selectedCat} setSelectedCat={setSelectedCat}
-                rates={rates} onSave={saveExpense} onReset={resetForm}
-                setIsPickerVisible={setIsPickerVisible} capturedImage={capturedImage} setViewingImage={setViewingImage}
-              />
-            ) : (
-              <>
-                <View style={styles.searchContainer}>
-                  <TextInput style={styles.searchInput} placeholder="🔍 搜尋項目/類別..." placeholderTextColor="#666" value={searchQuery} onChangeText={setSearchQuery} />
-                </View>
-
-                <View style={styles.headerRow}>
-                  <View style={styles.yearSelector}>
-                    <TouchableOpacity onPress={() => setViewYear(v => v - 1)}><Text style={styles.cyanText}>◀</Text></TouchableOpacity>
-                    <Text style={styles.yearText}>{viewYear}</Text>
-                    <TouchableOpacity onPress={() => setViewYear(v => v + 1)}><Text style={styles.cyanText}>▶</Text></TouchableOpacity>
+              {activeTab === 'RECORD' ? (
+                <ExpenseForm 
+                  editingId={editingId} item={item} setItem={setItem} 
+                  amount={amount} setAmount={setAmount} 
+                  selectedCurr={selectedCurr} setSelectedCurr={setSelectedCurr}
+                  selectedCat={selectedCat} setSelectedCat={setSelectedCat}
+                  rates={rates} onSave={saveExpense} onReset={resetForm}
+                  setIsPickerVisible={setIsPickerVisible} capturedImage={capturedImage} setViewingImage={setViewingImage}
+                />
+              ) : (
+                <>
+                  <View style={styles.searchContainer}>
+                    <TextInput style={styles.searchInput} placeholder="🔍 搜尋項目/類別..." placeholderTextColor="#BBB" value={searchQuery} onChangeText={setSearchQuery} />
                   </View>
-                  <TouchableOpacity onPress={() => setIsYearlyView(!isYearlyView)} style={styles.yearlyToggle}>
-                    <Text style={{color:'#00E5FF', fontSize:12}}>{isYearlyView ? "返去月覽" : "全年總結"}</Text>
-                  </TouchableOpacity>
-                </View>
 
-                <View style={styles.monthGrid}>
-                  {MONTHS.map(m => (
-                    <TouchableOpacity key={m} onPress={() => { setSelectedMonth(m); setIsYearlyView(false); }} style={[styles.monthBox, (!isYearlyView && selectedMonth === m) && styles.activeBorder]}>
-                      <Text style={{fontSize:10, color: (!isYearlyView && selectedMonth === m) ? '#00E5FF' : '#AAA'}}>{m}</Text>
+                  <View style={styles.headerRow}>
+                    <View style={styles.yearSelector}>
+                      <TouchableOpacity onPress={() => setViewYear(v => v - 1)}><Text style={styles.cyanText}>◀</Text></TouchableOpacity>
+                      <Text style={styles.yearText}>{viewYear}</Text>
+                      <TouchableOpacity onPress={() => setViewYear(v => v + 1)}><Text style={styles.cyanText}>▶</Text></TouchableOpacity>
+                    </View>
+                    <TouchableOpacity onPress={() => setIsYearlyView(!isYearlyView)} style={styles.yearlyToggle}>
+                      <Text style={{color:'#00E5FF', fontSize:12}}>{isYearlyView ? "返去月覽" : "全年總結"}</Text>
                     </TouchableOpacity>
-                  ))}
-                </View>
-
-                {isYearlyView ? (
-                  <View style={styles.yearlyListContainer}>
-                    {MONTHS.map(m => {
-                      const monthTotal = expenses.filter(e => e.year === viewYear && e.month === m).reduce((s, e) => s + e.hkdAmount, 0);
-                      const max = Math.max(...MONTHS.map(mon => expenses.filter(e => e.year === viewYear && e.month === mon).reduce((s, e) => s + e.hkdAmount, 0)), 1);
-                      return (
-                        <TouchableOpacity key={m} style={styles.yearlyRow} onPress={() => { setSelectedMonth(m); setIsYearlyView(false); }}>
-                          <Text style={styles.monthLabel}>{m}</Text>
-                          <View style={styles.barTrack}><View style={[styles.barFill, { width: `${(monthTotal/max)*100}%`, backgroundColor: '#FF4081' }]} /></View>
-                          <Text style={styles.amountLabel}>${monthTotal.toFixed(0)}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
                   </View>
-                ) : filteredData.length === 0 ? (
-                  <Text style={{color:'#666', textAlign:'center', marginTop:40}}>冇符合記錄 🫧</Text>
-                ) : (
-                  <>
-                    <AnalyticsCharts filtered={filteredData} catLabel={catLabel} setCatLabel={setCatLabel} dayLabel={dayLabel} setDayLabel={setDayLabel} />
-                    {Object.keys(filteredData.reduce((g, e) => { (g[e.day] = g[e.day] || []).push(e); return g; }, {})).sort((a,b)=>b-a).map(day => {
-                      const dayItems = filteredData.filter(e => e.day === Number(day));
-                      return (
-                        <View key={`day-${day}`} style={styles.dayGroupWrapper}>
-                          <View style={styles.dayHeader}>
-                            <Text style={styles.dayHeaderText}>{day}日</Text>
-                            <Text style={styles.daySumText}>日計: ${dayItems.reduce((s, e) => s + e.hkdAmount, 0).toFixed(0)}</Text>
-                          </View>
-                          {dayItems.map(exp => (
-                            <View key={exp.id} style={styles.listItem}>
-                              <Text style={{fontSize: 20, color: exp.category.color}}>{exp.category.icon}</Text>
-                              <View style={{flex:1, marginLeft:12}}>
-                                <Text style={{color: exp.category.color, fontWeight: '600'}}>{exp.item}</Text>
-                                <Text style={{color:'#AAA', fontSize:11}}>{exp.currency.code} {exp.foreignAmount} ({exp.category.label})</Text>
-                              </View>
-                              {exp.image && <TouchableOpacity onPress={() => setViewingImage(exp.image)}><Image source={{ uri: exp.image }} style={styles.listThumb} /></TouchableOpacity>}
-                              <Text style={{color: exp.category.color, fontWeight:'bold', marginRight:10}}>${exp.hkdAmount.toFixed(0)}</Text>
-                              <TouchableOpacity onPress={() => startEdit(exp)} style={{padding:5}}><Text>✏️</Text></TouchableOpacity>
-                              <TouchableOpacity onPress={() => handleDelete(exp.id)} style={{padding:5}}><Text>🗑️</Text></TouchableOpacity>
+
+                  <View style={styles.monthGrid}>
+                    {MONTHS.map(m => (
+                      <TouchableOpacity key={m} onPress={() => { setSelectedMonth(m); setIsYearlyView(false); }} style={[styles.monthBox, (!isYearlyView && selectedMonth === m && styles.activeBorder)]}>
+                        <Text style={{fontSize:10, color: (!isYearlyView && selectedMonth === m) ? '#00E5FF' : '#EEE'}}>{m}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {isYearlyView ? (
+                    <View style={styles.yearlyListContainer}>
+                      {MONTHS.map(m => {
+                        const monthTotal = expenses.filter(e => e.year === viewYear && e.month === m).reduce((s, e) => s + e.hkdAmount, 0);
+                        const max = Math.max(...MONTHS.map(mon => expenses.filter(e => e.year === viewYear && e.month === mon).reduce((s, e) => s + e.hkdAmount, 0)), 1);
+                        return (
+                          <TouchableOpacity key={m} style={styles.yearlyRow} onPress={() => { setSelectedMonth(m); setIsYearlyView(false); }}>
+                            <Text style={styles.monthLabel}>{m}</Text>
+                            <View style={styles.barTrack}><View style={[styles.barFill, { width: `${(monthTotal/max)*100}%`, backgroundColor: '#FF4081' }]} /></View>
+                            <Text style={styles.amountLabel}>${monthTotal.toFixed(0)}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ) : filteredData.length === 0 ? (
+                    <Text style={{color:'#DDD', textAlign:'center', marginTop:40, textShadowColor: '#000', textShadowRadius: 2}}>冇符合記錄 🫧</Text>
+                  ) : (
+                    <>
+                      <AnalyticsCharts filtered={filteredData} catLabel={catLabel} setCatLabel={setCatLabel} dayLabel={dayLabel} setDayLabel={setDayLabel} />
+                      {Object.keys(filteredData.reduce((g, e) => { (g[e.day] = g[e.day] || []).push(e); return g; }, {})).sort((a,b)=>b-a).map(day => {
+                        const dayItems = filteredData.filter(e => e.day === Number(day));
+                        return (
+                          <View key={`day-${day}`} style={styles.dayGroupWrapper}>
+                            <View style={styles.dayHeader}>
+                              <Text style={styles.dayHeaderText}>{day}日</Text>
+                              <Text style={styles.daySumText}>日計: ${dayItems.reduce((s, e) => s + e.hkdAmount, 0).toFixed(0)}</Text>
                             </View>
-                          ))}
-                        </View>
-                      )
-                    })}
-                  </>
-                )}
-              </>
-            )}
-            <View style={{height:120}}/>
-          </ScrollView>
-        </SafeAreaView>
+                            {dayItems.map(exp => (
+                              <View key={exp.id} style={styles.listItem}>
+                                <Text style={{fontSize: 20}}>{exp.category.icon}</Text>
+                                <View style={{flex:1, marginLeft:12}}>
+                                  <Text style={{color: '#FFF', fontWeight: 'bold', textShadowColor: '#000', textShadowRadius: 1}}>{exp.item}</Text>
+                                  <Text style={{color:'#CCC', fontSize:11}}>{exp.currency.code} {exp.foreignAmount} ({exp.category.label})</Text>
+                                </View>
+                                {exp.image && <TouchableOpacity onPress={() => setViewingImage(exp.image)}><Image source={{ uri: exp.image }} style={styles.listThumb} /></TouchableOpacity>}
+                                <Text style={{color: exp.category.color, fontWeight:'bold', marginRight:10, fontSize:16, textShadowColor: '#000', textShadowRadius: 1}}>${exp.hkdAmount.toFixed(0)}</Text>
+                                <TouchableOpacity onPress={() => startEdit(exp)} style={{padding:5}}><Text>✏️</Text></TouchableOpacity>
+                                <TouchableOpacity onPress={() => handleDelete(exp.id)} style={{padding:5}}><Text>🗑️</Text></TouchableOpacity>
+                              </View>
+                            ))}
+                          </View>
+                        )
+                      })}
+                    </>
+                  )}
+                </>
+              )}
+              <View style={{height:120}}/>
+            </ScrollView>
+          </SafeAreaView>
 
-        {/* --- Modals --- */}
-        <Modal visible={isPickerVisible} transparent animationType="slide">
-          <View style={styles.modalBg}>
-            <View style={styles.pickerCard}>
-              <Text style={styles.pickerTitle}>添加收據圖片</Text>
-              <TouchableOpacity style={styles.pickerBtn} onPress={() => pickImage(true)}><Text style={styles.pickerBtnText}>📸 開啟相機</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.pickerBtn} onPress={() => pickImage(false)}><Text style={styles.pickerBtnText}>🖼️ 從相簿選擇</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.pickerBtn, {backgroundColor: '#333', marginTop: 10}]} onPress={() => setIsPickerVisible(false)}><Text style={{color: '#FF5252', fontWeight: 'bold'}}>取消</Text></TouchableOpacity>
-            </View>
+          <View style={styles.nav}>
+            <TouchableOpacity onPress={() => setActiveTab('RECORD')} style={styles.navBtn}><Text style={[styles.navText, activeTab === 'RECORD' && styles.navActive]}>記帳</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => setActiveTab('OVERVIEW')} style={styles.navBtn}><Text style={[styles.navText, activeTab === 'OVERVIEW' && styles.navActive]}>總覽</Text></TouchableOpacity>
           </View>
-        </Modal>
-
-        <Modal visible={!!viewingImage} transparent animationType="fade">
-          <TouchableOpacity style={styles.modalBg} onPress={() => setViewingImage(null)}>
-            <Image source={{ uri: viewingImage }} style={styles.fullImage} resizeMode="contain" />
-          </TouchableOpacity>
-        </Modal>
-
-        <View style={styles.nav}>
-          <TouchableOpacity onPress={() => setActiveTab('RECORD')} style={styles.navBtn}><Text style={[styles.navText, activeTab === 'RECORD' && styles.navActive]}>記帳</Text></TouchableOpacity>
-          <TouchableOpacity onPress={() => setActiveTab('OVERVIEW')} style={styles.navBtn}><Text style={[styles.navText, activeTab === 'OVERVIEW' && styles.navActive]}>總覽</Text></TouchableOpacity>
         </View>
       </ImageBackground>
+
+      {/* --- Modals --- */}
+      <Modal visible={isPickerVisible} transparent animationType="slide">
+        <View style={styles.modalBg}>
+          <View style={styles.pickerCard}>
+            <Text style={styles.pickerTitle}>添加收據圖片</Text>
+            <TouchableOpacity style={styles.pickerBtn} onPress={() => pickImage(true)}><Text style={styles.pickerBtnText}>📸 開啟相機</Text></TouchableOpacity>
+            <TouchableOpacity style={styles.pickerBtn} onPress={() => pickImage(false)}><Text style={styles.pickerBtnText}>🖼️ 從相簿選擇</Text></TouchableOpacity>
+            <TouchableOpacity style={[styles.pickerBtn, {backgroundColor: '#333', marginTop: 10}]} onPress={() => setIsPickerVisible(false)}><Text style={{color: '#FF5252', fontWeight: 'bold'}}>取消</Text></TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={!!viewingImage} transparent animationType="fade">
+        <TouchableOpacity style={styles.modalBg} onPress={() => setViewingImage(null)}>
+          <Image source={{ uri: viewingImage }} style={styles.fullImage} resizeMode="contain" />
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
 
-// --- 樣式表 ---
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' }, 
   bgImage: { flex: 1, width: '100%' }, 
-  loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }, // 背景遮罩
+  loader: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
   scrollContent: { padding: 20, paddingTop: 40 }, 
   header: { marginBottom: 15 }, 
-  headerTitle: { fontSize: 22, fontWeight: 'bold', color: '#00E5FF' },
+  headerTitle: { fontSize: 26, fontWeight: 'bold', color: '#00E5FF', textShadowColor: '#000', textShadowRadius: 3 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   searchContainer: { flexDirection: 'row', marginBottom: 15, alignItems: 'center' },
-  searchInput: { flex: 1, backgroundColor: 'rgba(255,255,255,0.1)', color: '#FFF', padding: 12, borderRadius: 15, borderWidth: 1, borderColor: '#444' },
-  yearSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 10, padding: 8 },
+  searchInput: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', color: '#FFF', padding: 12, borderRadius: 15, borderWidth: 1, borderColor: '#666' },
+  yearSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, padding: 8 },
   yearText: { color: '#FFF', marginHorizontal: 12, fontWeight: 'bold' }, 
   cyanText: { color: '#00E5FF', fontSize: 18 },
-  yearlyToggle: { backgroundColor: 'rgba(0,229,255,0.1)', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#00E5FF' },
-  cyberCard: { backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: 25, padding: 20, borderWidth: 1, borderColor: '#444' },
+  yearlyToggle: { backgroundColor: 'rgba(0,229,255,0.2)', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#00E5FF' },
+  cyberCard: { backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: 25, padding: 20, borderWidth: 1, borderColor: '#555' },
   formStatusText: {color:'#00E5FF', marginBottom:10, fontWeight:'bold'},
   currBtnFull: { width: '100%', padding: 14, backgroundColor: '#111', borderRadius: 12, alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: '#555' },
   currGridSmall: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
@@ -379,24 +385,24 @@ const styles = StyleSheet.create({
   attachmentBtn: { backgroundColor: '#333', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#00E5FF', marginRight: 15 },
   miniPreview: { width: 45, height: 45, borderRadius: 8, borderWidth: 1, borderColor: '#00E5FF' },
   catGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
-  catItem: { width: '18%', aspectRatio: 1, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: '#333' },
-  catLabel: { fontSize: 9, color: '#AAA', marginTop: 4 },
+  catItem: { width: '18%', aspectRatio: 1, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 10, borderWidth: 1, borderColor: '#444' },
+  catLabel: { fontSize: 9, color: '#DDD', marginTop: 4, textAlign: 'center' },
   addBtn: { backgroundColor: '#00E5FF', padding: 18, borderRadius: 20, alignItems: 'center' },
   addBtnText: { color: '#000', fontWeight: 'bold', fontSize: 14, textAlign: 'center' },
   monthGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 15 },
-  monthBox: { width: '15%', paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, alignItems: 'center', marginBottom: 6, borderWidth: 1, borderColor: '#333' },
-  activeBorder: { borderColor: '#00E5FF' },
-  chartsWrapper: { backgroundColor: 'rgba(0,0,0,0.85)', borderRadius: 25, padding: 15, marginBottom: 20, justifyContent: 'center' },
+  monthBox: { width: '15%', paddingVertical: 10, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, alignItems: 'center', marginBottom: 6, borderWidth: 1, borderColor: '#444' },
+  activeBorder: { borderColor: '#00E5FF', backgroundColor: 'rgba(0,229,255,0.1)' },
+  chartsWrapper: { backgroundColor: 'rgba(0,0,0,0.8)', borderRadius: 25, padding: 15, marginBottom: 20 },
   chartFlexRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
   chartContainer: { alignItems: 'center', justifyContent: 'center' },
   chartCenterText: { position: 'absolute', alignItems: 'center', justifyContent: 'center', width: 70 },
-  centerTitle: { color: '#AAA', fontSize: 9, textAlign: 'center' }, 
+  centerTitle: { color: '#DDD', fontSize: 9, textAlign: 'center' }, 
   centerVal: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
   dayGroupWrapper: { marginBottom: 20 },
-  dayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderLeftWidth: 3, borderLeftColor: '#00E5FF', backgroundColor: 'rgba(0,229,255,0.1)', marginBottom: 8, borderRadius: 4 },
+  dayHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderLeftWidth: 3, borderLeftColor: '#00E5FF', backgroundColor: 'rgba(0,0,0,0.6)', marginBottom: 8, borderRadius: 4 },
   dayHeaderText: { color: '#00E5FF', fontWeight: 'bold', fontSize: 14 },
-  daySumText: { color: '#AAA', fontSize: 12 },
-  listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', padding: 12, borderRadius: 18, marginBottom: 8 },
+  daySumText: { color: '#EEE', fontSize: 12 },
+  listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.65)', padding: 12, borderRadius: 18, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   listThumb: { width: 35, height: 35, borderRadius: 5, marginRight: 10 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
   fullImage: { width: '90%', height: '80%' },
@@ -405,10 +411,20 @@ const styles = StyleSheet.create({
   monthLabel: { color: '#FFF', width: 40 },
   barTrack: { flex: 1, height: 12, backgroundColor: '#222', borderRadius: 6, marginHorizontal: 12, overflow: 'hidden' },
   barFill: { height: '100%' }, 
-  amountLabel: { color: '#AAA', width: 65, textAlign: 'right', fontSize: 12 },
-  nav: { position: 'absolute', bottom: 0, width: '100%', flexDirection: 'row', height: 90, backgroundColor: 'rgba(0,0,0,0.95)', borderTopWidth: 1, borderColor: '#333' },
+  amountLabel: { color: '#EEE', width: 65, textAlign: 'right', fontSize: 12 },
+  nav: { 
+    position: 'absolute', 
+    bottom: 0, 
+    width: '100%', 
+    flexDirection: 'row', 
+    height: Platform.OS === 'android' ? 100 : 90, 
+    paddingBottom: Platform.OS === 'android' ? 25 : 0, 
+    backgroundColor: 'rgba(0,0,0,0.9)', 
+    borderTopWidth: 1, 
+    borderColor: '#444' 
+  },
   navBtn: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  navText: { color: '#666', fontSize: 12 }, 
+  navText: { color: '#AAA', fontSize: 12 }, 
   navActive: { color: '#00E5FF', fontWeight: 'bold' },
   pickerCard: { backgroundColor: '#111', width: '80%', padding: 25, borderRadius: 25, borderWidth: 1, borderColor: '#00E5FF', alignItems: 'center' },
   pickerTitle: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 20 },
