@@ -7,7 +7,7 @@ import { PieChart } from 'react-native-svg-charts';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 
-// --- 常數定義 ---
+// --- 常數 ---
 const MY_CUSTOM_BACKGROUND = require('../../assets/bg.jpg'); 
 
 const RAINBOW_COLORS = ['#FF4081', '#00E5FF', '#76FF03', '#AA00FF', '#FFAB00', '#2979FF', '#EA80FC', '#D4E157', '#00BFA5', '#FF5252'];
@@ -29,7 +29,7 @@ const CURRENCY_LIST = [
 ];
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
-// --- 子組件 1: 記帳表單 ---
+// --- 子組件: 記帳表單 ---
 const ExpenseForm = ({ 
   editingId, item, setItem, amount, setAmount, selectedCurr, setSelectedCurr, 
   selectedCat, setSelectedCat, rates, onSave, onReset, setIsPickerVisible, capturedImage, setViewingImage 
@@ -54,9 +54,9 @@ const ExpenseForm = ({
         {CURRENCY_LIST.slice(1).map(c => (
           <TouchableOpacity key={c.code} onPress={() => setSelectedCurr(c)} style={[styles.currBtnSmall, selectedCurr.code === c.code && styles.currActive]}>
             <Text 
-              style={[styles.currTextSmall, selectedCurr.code === c.code && {color:'#00E5FF'}]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
+              style={[styles.currTextSmall, selectedCurr.code === c.code && {color:'#00E5FF'}]} 
+              numberOfLines={1} 
+              adjustsFontSizeToFit // 👈 確保 CN、JPY 等所有細掣唔會爆字或消失
             >
               {c.flag} {c.code}
             </Text>
@@ -93,7 +93,7 @@ const ExpenseForm = ({
   );
 };
 
-// --- 子組件 2: 統計圖表 ---
+// --- 子組件: 統計圖表 ---
 const AnalyticsCharts = ({ filtered, catLabel, setCatLabel, dayLabel, setDayLabel }) => {
   const total = filtered.reduce((s, e) => s + e.hkdAmount, 0);
   if (total === 0) return null;
@@ -135,13 +135,12 @@ const AnalyticsCharts = ({ filtered, catLabel, setCatLabel, dayLabel, setDayLabe
   );
 };
 
-// --- 主程式進入點 ---
+// --- 主程式 ---
 export default function Index() {
   const [activeTab, setActiveTab] = useState('RECORD');
   const [expenses, setExpenses] = useState([]);
   const [rates, setRates] = useState({ HKD: 1 });
   const [loading, setLoading] = useState(true);
-  
   const [editingId, setEditingId] = useState(null);
   const [item, setItem] = useState('');
   const [amount, setAmount] = useState('');
@@ -149,7 +148,6 @@ export default function Index() {
   const [selectedCat, setSelectedCat] = useState(CATEGORIES[0]);
   const [capturedImage, setCapturedImage] = useState(null);
   const [isPickerVisible, setIsPickerVisible] = useState(false);
-
   const [searchQuery, setSearchQuery] = useState('');
   const [viewYear, setViewYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(`${new Date().getMonth() + 1}月`);
@@ -166,7 +164,7 @@ export default function Index() {
         const res = await fetch('https://open.er-api.com/v6/latest/HKD');
         const data = await res.json();
         if (data?.rates) setRates(data.rates);
-      } catch (e) { console.log("初始化錯誤:", e); } finally { setLoading(false); }
+      } catch (e) { console.log("Init Error:", e); } finally { setLoading(false); }
     })();
   }, []);
 
@@ -240,18 +238,14 @@ export default function Index() {
         <View style={styles.overlay}>
           <SafeAreaView style={{flex:1}}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
-              <View style={styles.header}>
-                <Text style={styles.headerTitle}>MoneyCount 💸</Text>
-              </View>
+              <View style={styles.header}><Text style={styles.headerTitle}>MoneyCount 💸</Text></View>
 
               {activeTab === 'RECORD' ? (
                 <ExpenseForm 
-                  editingId={editingId} item={item} setItem={setItem} 
-                  amount={amount} setAmount={setAmount} 
-                  selectedCurr={selectedCurr} setSelectedCurr={setSelectedCurr}
-                  selectedCat={selectedCat} setSelectedCat={setSelectedCat}
-                  rates={rates} onSave={saveExpense} onReset={resetForm}
-                  setIsPickerVisible={setIsPickerVisible} capturedImage={capturedImage} setViewingImage={setViewingImage}
+                  editingId={editingId} item={item} setItem={setItem} amount={amount} setAmount={setAmount} 
+                  selectedCurr={selectedCurr} setSelectedCurr={setSelectedCurr} selectedCat={selectedCat} setSelectedCat={setSelectedCat}
+                  rates={rates} onSave={saveExpense} onReset={resetForm} setIsPickerVisible={setIsPickerVisible} 
+                  capturedImage={capturedImage} setViewingImage={setViewingImage}
                 />
               ) : (
                 <>
@@ -309,8 +303,8 @@ export default function Index() {
                               <View key={exp.id} style={styles.listItem}>
                                 <Text style={{fontSize: 20}}>{exp.category.icon}</Text>
                                 <View style={{flex:1, marginLeft:12}}>
-                                  <Text style={{color: '#FFF', fontWeight: 'bold', textShadowColor: '#000', textShadowRadius: 1}}>{exp.item}</Text>
-                                  <Text style={{color:'#CCC', fontSize:11}}>{exp.currency.code} {exp.foreignAmount} ({exp.category.label})</Text>
+                                  <Text style={{color: exp.category.color, fontWeight: 'bold', textShadowColor: '#000', textShadowRadius: 1}}>{exp.item}</Text>
+                                  <Text style={{color: exp.category.color, opacity: 0.8, fontSize:11}}>{exp.currency.code} {exp.foreignAmount} ({exp.category.label})</Text>
                                 </View>
                                 {exp.image && <TouchableOpacity onPress={() => setViewingImage(exp.image)}><Image source={{ uri: exp.image }} style={styles.listThumb} /></TouchableOpacity>}
                                 <Text style={{color: exp.category.color, fontWeight:'bold', marginRight:10, fontSize:16, textShadowColor: '#000', textShadowRadius: 1}}>${exp.hkdAmount.toFixed(0)}</Text>
@@ -321,11 +315,11 @@ export default function Index() {
                           </View>
                         )
                       })}
+                      <View style={{height:120}}/>
                     </>
                   )}
                 </>
               )}
-              <View style={{height:120}}/>
             </ScrollView>
           </SafeAreaView>
 
@@ -360,7 +354,6 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)' }, 
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
   scrollContent: { padding: 20, paddingTop: 40 }, 
-  header: { marginBottom: 15 }, 
   headerTitle: { fontSize: 26, fontWeight: 'bold', color: '#00E5FF', textShadowColor: '#000', textShadowRadius: 3 },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   searchContainer: { flexDirection: 'row', marginBottom: 15, alignItems: 'center' },
@@ -412,15 +405,10 @@ const styles = StyleSheet.create({
   barFill: { height: '100%' }, 
   amountLabel: { color: '#EEE', width: 65, textAlign: 'right', fontSize: 12 },
   nav: { 
-    position: 'absolute', 
-    bottom: 0, 
-    width: '100%', 
-    flexDirection: 'row', 
+    position: 'absolute', bottom: 0, width: '100%', flexDirection: 'row', 
     height: Platform.OS === 'android' ? 100 : 90, 
     paddingBottom: Platform.OS === 'android' ? 25 : 0, 
-    backgroundColor: 'rgba(0,0,0,0.9)', 
-    borderTopWidth: 1, 
-    borderColor: '#444' 
+    backgroundColor: 'rgba(0,0,0,0.9)', borderTopWidth: 1, borderColor: '#444' 
   },
   navBtn: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   navText: { color: '#AAA', fontSize: 12 }, 
