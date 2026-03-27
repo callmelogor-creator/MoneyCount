@@ -29,10 +29,11 @@ const CURRENCY_LIST = [
 ];
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
-// --- 子組件: 記帳表單 (保持原封不動) ---
+// --- 子組件: 記帳表單 (新增日期選擇顯示) ---
 const ExpenseForm = ({ 
   editingId, item, setItem, amount, setAmount, selectedCurr, setSelectedCurr, 
-  selectedCat, setSelectedCat, rates, onSave, onReset, setIsPickerVisible, capturedImage, setViewingImage 
+  selectedCat, setSelectedCat, rates, onSave, onReset, setIsPickerVisible, 
+  capturedImage, setViewingImage, selectedDate, setShowDatePicker 
 }) => {
   const getButtonText = () => {
     const val = parseFloat(amount);
@@ -70,6 +71,11 @@ const ExpenseForm = ({
       <TextInput style={styles.cyberInput} placeholder="買咗咩？" placeholderTextColor="#666" value={item} onChangeText={setItem} />
       <TextInput style={styles.cyberInput} placeholder="金額" keyboardType="numeric" placeholderTextColor="#666" value={amount} onChangeText={setAmount} />
       
+      {/* 新增：日期選擇按鈕 */}
+      <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShowDatePicker(true)}>
+        <Text style={{color: '#FFF'}}>📅 日期: {selectedDate.toLocaleDateString()}</Text>
+      </TouchableOpacity>
+
       <View style={styles.photoRow}>
         <TouchableOpacity style={styles.attachmentBtn} onPress={() => setIsPickerVisible(true)}><Text style={{color:'#FFF'}}>📷 附件</Text></TouchableOpacity>
         {capturedImage && <TouchableOpacity onPress={() => setViewingImage(capturedImage)}><Image source={{ uri: capturedImage }} style={styles.miniPreview} /></TouchableOpacity>}
@@ -90,8 +96,8 @@ const ExpenseForm = ({
   );
 };
 
-// --- 子組件: 簡易日曆選擇器 ---
-const CustomCalendar = ({ onSelectRange, onClose }) => {
+// --- 子組件: 簡易日曆選擇器 (修改為支援單選與範圍) ---
+const CustomCalendar = ({ onSelectRange, onSelectDate, onClose, mode = 'range' }) => {
   const [currDate, setCurrDate] = useState(new Date());
   const [start, setStart] = useState(null);
   const [end, setEnd] = useState(null);
@@ -103,6 +109,11 @@ const CustomCalendar = ({ onSelectRange, onClose }) => {
 
   const handleDayPress = (day) => {
     const selected = new Date(year, month, day);
+    if (mode === 'single') {
+      onSelectDate(selected);
+      onClose();
+      return;
+    }
     if (!start || (start && end)) { setStart(selected); setEnd(null); }
     else if (selected < start) { setStart(selected); }
     else { setEnd(selected); }
@@ -115,6 +126,7 @@ const CustomCalendar = ({ onSelectRange, onClose }) => {
   const isSelected = (day) => {
     if (!day) return false;
     const d = new Date(year, month, day);
+    if (mode === 'single') return false; 
     if (start && d.getTime() === start.getTime()) return true;
     if (end && d.getTime() === end.getTime()) return true;
     if (start && end && d > start && d < end) return true;
@@ -137,21 +149,22 @@ const CustomCalendar = ({ onSelectRange, onClose }) => {
         ))}
       </View>
       <View style={styles.calendarFooter}>
-        <TouchableOpacity style={styles.confirmBtn} onPress={() => { if (start && end) { onSelectRange({ start, end }); onClose(); } else { Alert.alert("提示", "請選擇範圍"); } }}>
-          <Text style={{fontWeight:'bold'}}>確定選擇</Text>
-        </TouchableOpacity>
+        {mode === 'range' && (
+          <TouchableOpacity style={styles.confirmBtn} onPress={() => { if (start && end) { onSelectRange({ start, end }); onClose(); } else { Alert.alert("提示", "請選擇範圍"); } }}>
+            <Text style={{fontWeight:'bold'}}>確定選擇</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity onPress={onClose}><Text style={{color:'#AAA', marginTop:10}}>取消</Text></TouchableOpacity>
       </View>
     </View>
   );
 };
 
-// --- 子組件: 統計圖表 (重點修正：類別排行顏色跟隨類別定義) ---
+// --- 子組件: 統計圖表 (日期排行文字顏色跟隨圖表) ---
 const AnalyticsCharts = ({ filtered, catLabel, setCatLabel, dayLabel, setDayLabel }) => {
   const total = filtered.reduce((s, e) => s + e.hkdAmount, 0);
   if (total === 0) return null;
 
-  // 1. 類別數據
   const catMap = {};
   filtered.forEach(e => { catMap[e.category.id] = (catMap[e.category.id] || 0) + e.hkdAmount; });
   const catPieData = Object.keys(catMap).map(id => ({
@@ -159,17 +172,18 @@ const AnalyticsCharts = ({ filtered, catLabel, setCatLabel, dayLabel, setDayLabe
     onPress: () => setCatLabel({ title: CATEGORIES.find(c => c.id === id)?.label || '', val: catMap[id] })
   }));
 
-  // 2. 日期數據
   const dayMap = {};
   filtered.forEach(e => { 
     const monthNum = e.month.replace('月', '');
     const displayKey = `${monthNum}/${e.day}`;
     const storageKey = `${e.year}-${e.month}-${e.day}`;
-    if(!dayMap[storageKey]) dayMap[storageKey] = { label: displayKey, amount: 0 };
+    if(!dayMap[storageKey]) dayMap[storageKey] = { label: displayKey, amount: 0, storageKey: storageKey };
     dayMap[storageKey].amount += e.hkdAmount;
   });
 
-  const dayPieData = Object.keys(dayMap).map((key, idx) => ({
+  const sortedDayKeys = Object.keys(dayMap).sort((a, b) => b.localeCompare(a)); 
+
+  const dayPieData = sortedDayKeys.map((key, idx) => ({
     key: `day-${key}`, value: dayMap[key].amount, svg: { fill: RAINBOW_COLORS[idx % RAINBOW_COLORS.length] },
     onPress: () => setDayLabel({ title: dayMap[key].label, val: dayMap[key].amount })
   }));
@@ -181,7 +195,11 @@ const AnalyticsCharts = ({ filtered, catLabel, setCatLabel, dayLabel, setDayLabe
 
   const topDates = Object.values(dayMap)
     .sort((a, b) => b.amount - a.amount)
-    .slice(0, 5);
+    .slice(0, 5)
+    .map(item => {
+      const colorIndex = sortedDayKeys.indexOf(item.storageKey);
+      return { ...item, color: RAINBOW_COLORS[colorIndex % RAINBOW_COLORS.length] };
+    });
 
   return (
     <View style={styles.chartsWrapper}>
@@ -203,7 +221,6 @@ const AnalyticsCharts = ({ filtered, catLabel, setCatLabel, dayLabel, setDayLabe
       </View>
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20, paddingHorizontal: 5 }}>
-        {/* 左側：類別排行 (文字顏色跟隨類別定義) */}
         <View style={{ width: '48%' }}>
           <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold', marginBottom: 10 }}>📊 類別排行</Text>
           {topCats.map((item, index) => (
@@ -214,15 +231,13 @@ const AnalyticsCharts = ({ filtered, catLabel, setCatLabel, dayLabel, setDayLabe
             </View>
           ))}
         </View>
-
-        {/* 右側：日期排行 (文字顏色跟隨 Rainbow 系列) */}
         <View style={{ width: '48%' }}>
           <Text style={{ color: '#FFF', fontSize: 13, fontWeight: 'bold', marginBottom: 10 }}>🗓️ 日期排行</Text>
           {topDates.map((item, index) => (
             <View key={index} style={styles.rankGridItem}>
-              <Text style={[styles.rankGridNum, {color: RAINBOW_COLORS[index % RAINBOW_COLORS.length]}]}>{index + 1}</Text>
-              <Text style={[styles.rankGridLabel, {color: RAINBOW_COLORS[index % RAINBOW_COLORS.length]}]}>{item.label}</Text>
-              <Text style={[styles.rankGridAmount, {color: RAINBOW_COLORS[index % RAINBOW_COLORS.length]}]}>${item.amount.toFixed(0)}</Text>
+              <Text style={[styles.rankGridNum, {color: item.color}]}>{index + 1}</Text>
+              <Text style={[styles.rankGridLabel, {color: item.color}]}>{item.label}</Text>
+              <Text style={[styles.rankGridAmount, {color: item.color}]}>${item.amount.toFixed(0)}</Text>
             </View>
           ))}
         </View>
@@ -231,7 +246,7 @@ const AnalyticsCharts = ({ filtered, catLabel, setCatLabel, dayLabel, setDayLabe
   );
 };
 
-// --- 主程式 (其他邏輯與樣式完全不變) ---
+// --- 主程式 ---
 export default function Index() {
   const [activeTab, setActiveTab] = useState('RECORD');
   const [expenses, setExpenses] = useState([]);
@@ -253,6 +268,10 @@ export default function Index() {
   const [dayLabel, setDayLabel] = useState({ title: '總計', val: 0 });
   const [customRange, setCustomRange] = useState(null); 
   const [showCalendar, setShowCalendar] = useState(false);
+
+  // 新增：記帳用的日期狀態
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -296,20 +315,24 @@ export default function Index() {
     if (!amount || isNaN(parsedAmount)) { Alert.alert("錯誤", "請輸入有效的金額數字"); return; }
     const rateOfSelected = rates[selectedCurr.code] || 1;
     const hkdAmount = selectedCurr.code === 'HKD' ? parsedAmount : (parsedAmount / rateOfSelected);
-    const now = new Date();
+    
+    // 使用自選日期
+    const targetDate = selectedDate;
     
     if (editingId) {
       setExpenses(prev => prev.map(e => e.id === editingId ? {
         ...e, item: item.trim() || "未命名項目", foreignAmount: parsedAmount, hkdAmount: hkdAmount,
-        category: selectedCat, currency: selectedCurr, image: capturedImage
+        category: selectedCat, currency: selectedCurr, image: capturedImage,
+        day: targetDate.getDate(), year: targetDate.getFullYear(), month: `${targetDate.getMonth() + 1}月`,
+        timestamp: targetDate.getTime()
       } : e));
       setEditingId(null);
     } else {
       setExpenses(prev => [{
         id: Math.random().toString(36).substr(2, 9),
-        day: now.getDate(), item: item.trim() || "未命名項目", foreignAmount: parsedAmount, hkdAmount: hkdAmount,
-        category: selectedCat, currency: selectedCurr, year: now.getFullYear(), month: `${now.getMonth() + 1}月`,
-        image: capturedImage, timestamp: now.getTime()
+        day: targetDate.getDate(), item: item.trim() || "未命名項目", foreignAmount: parsedAmount, hkdAmount: hkdAmount,
+        category: selectedCat, currency: selectedCurr, year: targetDate.getFullYear(), month: `${targetDate.getMonth() + 1}月`,
+        image: capturedImage, timestamp: targetDate.getTime()
       }, ...prev]);
     }
     resetForm(); setActiveTab('OVERVIEW');
@@ -318,11 +341,14 @@ export default function Index() {
   const resetForm = () => {
     setItem(''); setAmount(''); setCapturedImage(null); setEditingId(null);
     setSelectedCat(CATEGORIES[0]); setSelectedCurr(CURRENCY_LIST[0]);
+    setSelectedDate(new Date()); 
   };
 
   const startEdit = (exp) => {
     setEditingId(exp.id); setItem(exp.item); setAmount(exp.foreignAmount.toString());
     setSelectedCurr(exp.currency); setSelectedCat(exp.category); setCapturedImage(exp.image);
+    const oldDate = exp.timestamp ? new Date(exp.timestamp) : new Date(exp.year, parseInt(exp.month)-1, exp.day);
+    setSelectedDate(oldDate);
     setActiveTab('RECORD');
   };
 
@@ -348,6 +374,7 @@ export default function Index() {
                   selectedCurr={selectedCurr} setSelectedCurr={setSelectedCurr} selectedCat={selectedCat} setSelectedCat={setSelectedCat}
                   rates={rates} onSave={saveExpense} onReset={resetForm} setIsPickerVisible={setIsPickerVisible} 
                   capturedImage={capturedImage} setViewingImage={setViewingImage}
+                  selectedDate={selectedDate} setShowDatePicker={setShowDatePicker}
                 />
               ) : (
                 <>
@@ -366,7 +393,7 @@ export default function Index() {
                     </TouchableOpacity>
                   </View>
 
-                  <TouchableOpacity style={styles.rangeBtn} onPress={() => setShowCalendar(true)}>
+                  <TouchableOpacity style={styles.rangeBtn} onPress={() => { setShowCalendar(true); }}>
                     <Text style={{color: '#00E5FF', fontWeight:'bold', fontSize: 13}}>
                       {customRange ? `📅 ${customRange.start.toLocaleDateString()} - ${customRange.end.toLocaleDateString()}` : "📅 跨月分析 (選擇自定義範圍)"}
                     </Text>
@@ -465,7 +492,11 @@ export default function Index() {
       </Modal>
 
       <Modal visible={showCalendar} transparent animationType="fade">
-        <View style={styles.modalBg}><CustomCalendar onSelectRange={setCustomRange} onClose={() => setShowCalendar(false)} /></View>
+        <View style={styles.modalBg}><CustomCalendar mode="range" onSelectRange={setCustomRange} onClose={() => setShowCalendar(false)} /></View>
+      </Modal>
+
+      <Modal visible={showDatePicker} transparent animationType="fade">
+        <View style={styles.modalBg}><CustomCalendar mode="single" onSelectDate={setSelectedDate} onClose={() => setShowDatePicker(false)} /></View>
       </Modal>
     </View>
   );
@@ -497,6 +528,7 @@ const styles = StyleSheet.create({
   rateBox: { backgroundColor: 'rgba(0,229,255,0.1)', padding: 10, borderRadius: 10, marginBottom: 15 },
   rateText: { color: '#00E5FF', fontSize: 12, textAlign: 'center' },
   cyberInput: { backgroundColor: 'rgba(255,255,255,0.9)', color: '#000', padding: 15, borderRadius: 15, marginBottom: 10, fontSize: 16 },
+  datePickerBtn: { backgroundColor: 'rgba(0,0,0,0.5)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', marginBottom: 10, alignItems: 'center' },
   photoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
   attachmentBtn: { backgroundColor: 'rgba(0,0,0,0.5)', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#00E5FF', marginRight: 15 },
   miniPreview: { width: 45, height: 45, borderRadius: 8, borderWidth: 1, borderColor: '#00E5FF' },
