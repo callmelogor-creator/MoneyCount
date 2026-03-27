@@ -300,13 +300,13 @@ export default function Index() {
                           </View>
                           {dayItems.map(exp => (
                             <View key={exp.id} style={styles.listItem}>
-                              <Text style={{fontSize: 20}}>{exp.category.icon}</Text>
+                              <Text style={{fontSize: 20, color: exp.category.color}}>{exp.category.icon}</Text>
                               <View style={{flex:1, marginLeft:12}}>
-                                <Text style={{color:'#FFF'}}>{exp.item}</Text>
-                                <Text style={{color:'#AAA', fontSize:11}}>{exp.currency.code} {exp.foreignAmount}</Text>
+                                <Text style={{color: exp.category.color, fontWeight: '600'}}>{exp.item}</Text>
+                                <Text style={{color:'#AAA', fontSize:11}}>{exp.currency.code} {exp.foreignAmount} ({exp.category.label})</Text>
                               </View>
                               {exp.image && <TouchableOpacity onPress={() => setViewingImage(exp.image)}><Image source={{ uri: exp.image }} style={styles.listThumb} /></TouchableOpacity>}
-                              <Text style={{color:'#00E5FF', fontWeight:'bold', marginRight:10}}>${exp.hkdAmount.toFixed(0)}</Text>
+                              <Text style={{color: exp.category.color, fontWeight:'bold', marginRight:10}}>${exp.hkdAmount.toFixed(0)}</Text>
                               <TouchableOpacity onPress={() => startEdit(exp)} style={{padding:5}}><Text>✏️</Text></TouchableOpacity>
                               <TouchableOpacity onPress={() => handleDelete(exp.id)} style={{padding:5}}><Text>🗑️</Text></TouchableOpacity>
                             </View>
