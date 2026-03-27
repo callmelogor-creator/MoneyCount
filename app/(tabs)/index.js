@@ -351,9 +351,12 @@ export default function Index() {
     const hkdAmount = selectedCurr.code === 'HKD' ? parsedAmount : (parsedAmount / rateOfSelected);
     const targetDate = selectedDate;
     
+    // 如果項目名稱為空，自動採用目前選擇的類別標籤
+    const finalItem = item.trim() === '' ? selectedCat.label : item.trim();
+    
     if (editingId) {
       setExpenses(prev => prev.map(e => e.id === editingId ? {
-        ...e, item: item.trim() || "未命名項目", foreignAmount: parsedAmount, hkdAmount: hkdAmount,
+        ...e, item: finalItem, foreignAmount: parsedAmount, hkdAmount: hkdAmount,
         category: selectedCat, currency: selectedCurr, image: capturedImage,
         day: targetDate.getDate(), year: targetDate.getFullYear(), month: `${targetDate.getMonth() + 1}月`,
         timestamp: targetDate.getTime()
@@ -362,7 +365,7 @@ export default function Index() {
     } else {
       setExpenses(prev => [{
         id: Math.random().toString(36).substr(2, 9),
-        day: targetDate.getDate(), item: item.trim() || "未命名項目", foreignAmount: parsedAmount, hkdAmount: hkdAmount,
+        day: targetDate.getDate(), item: finalItem, foreignAmount: parsedAmount, hkdAmount: hkdAmount,
         category: selectedCat, currency: selectedCurr, year: targetDate.getFullYear(), month: `${targetDate.getMonth() + 1}月`,
         image: capturedImage, timestamp: targetDate.getTime()
       }, ...prev]);
