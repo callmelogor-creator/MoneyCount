@@ -12,10 +12,7 @@
       "android": {
         "buildType": "apk"
       },
-      "distribution": "internal",
-      "cache": {
-        "disabled": true
-      }
+      "distribution": "internal"
     },
     "production": {
       "autoIncrement": true
