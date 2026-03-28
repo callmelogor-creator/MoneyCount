@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, 
-  SafeAreaView, ActivityIndicator, ImageBackground, Alert, Platform, Image, Modal,
+  ActivityIndicator, ImageBackground, Alert, Platform, Image, Modal,
   BackHandler, TouchableWithoutFeedback, KeyboardAvoidingView
 } from 'react-native';
+// 修正：改由專門套件導入 SafeAreaView 以消除警告
+import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { PieChart } from 'react-native-svg-charts';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+// 修正：導入新版或 legacy 接口，這裡使用官方建議的對應方式
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as WebBrowser from 'expo-web-browser';
@@ -415,7 +418,8 @@ export default function Index() {
     const fileUri = FileSystem.cacheDirectory + `MoneyCount_Export.csv`;
 
     try {
-      await FileSystem.writeAsStringAsync(fileUri, csvString, { encoding: 'utf8' });
+      // 修正：針對新版 FileSystem API 的警告進行了標準化處理
+      await FileSystem.writeAsStringAsync(fileUri, csvString, { encoding: FileSystem.EncodingType.UTF8 });
       const isSharingAvailable = await Sharing.isAvailableAsync();
       if (isSharingAvailable) { await Sharing.shareAsync(fileUri); }
     } catch (err) { Alert.alert("導出失敗", err.message); }
@@ -549,229 +553,231 @@ export default function Index() {
   if (loading) return <View style={styles.loader}><ActivityIndicator size="large" color="#00E5FF" /></View>;
 
   return (
-    <View style={styles.container}>
-      <ImageBackground source={MY_CUSTOM_BACKGROUND} style={styles.bgImage}>
-        <View style={styles.overlay}>
-          <SafeAreaView style={{flex:1}}>
-            <View style={styles.stickyHeader}>
-              <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-                <Text style={styles.headerTitle}>MoneyCount 💸</Text>
-                {activeTab === 'OVERVIEW' && (
-                  <View style={{flexDirection: 'row'}}>
-                    <TouchableOpacity onPress={() => handleGDriveSync('EXPORT')} style={[styles.exportBtn, {marginRight: 5, borderColor: '#76FF03'}]}>
-                      <Text style={{color: '#76FF03', fontWeight: 'bold', fontSize: 11}}>☁️ 備份</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleGDriveSync('IMPORT')} style={[styles.exportBtn, {marginRight: 5, borderColor: '#AA00FF'}]}>
-                      <Text style={{color: '#AA00FF', fontWeight: 'bold', fontSize: 11}}>☁️ 還原</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={handleExportCSV} style={styles.exportBtn}>
-                      <Text style={{color: '#00E5FF', fontWeight: 'bold', fontSize: 11}}>📄 CSV</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            {activeTab === 'RECORD' ? (
-              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.fixedContent}>
-                <View style={styles.cyberCard}>
-                  <Text style={styles.formStatusText}>{editingId ? "正在修改資料..." : "新入數"}</Text>
-                  <TouchableOpacity onPress={() => setSelectedCurr(CURRENCY_LIST[0])} style={[styles.currBtnFull, selectedCurr.code === 'HKD' && styles.currActive]}>
-                    <Text style={[styles.currText, selectedCurr.code === 'HKD' && {color:'#00E5FF'}]}>🇭🇰 HKD 港幣</Text>
-                  </TouchableOpacity>
-                  <View style={styles.currGridSmall}>
-                    {CURRENCY_LIST.slice(1).map(c => (
-                      <TouchableOpacity key={c.code} onPress={() => setSelectedCurr(c)} style={[styles.currBtnSmall, selectedCurr.code === c.code && styles.currActive]}>
-                        <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                          <Text style={{fontSize: 12}}>{c.flag}</Text>
-                          <Text style={[styles.currTextSmall, selectedCurr.code === c.code && {color:'#00E5FF'}]}>{" " + c.code}</Text>
-                        </View>
+    <SafeAreaProvider>
+      <View style={styles.container}>
+        <ImageBackground source={MY_CUSTOM_BACKGROUND} style={styles.bgImage}>
+          <View style={styles.overlay}>
+            <SafeAreaView style={{flex:1}} edges={['top', 'left', 'right']}>
+              <View style={styles.stickyHeader}>
+                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                  <Text style={styles.headerTitle}>MoneyCount 💸</Text>
+                  {activeTab === 'OVERVIEW' && (
+                    <View style={{flexDirection: 'row'}}>
+                      <TouchableOpacity onPress={() => handleGDriveSync('EXPORT')} style={[styles.exportBtn, {marginRight: 5, borderColor: '#76FF03'}]}>
+                        <Text style={{color: '#76FF03', fontWeight: 'bold', fontSize: 11}}>☁️ 備份</Text>
                       </TouchableOpacity>
-                    ))}
-                  </View>
-                  {selectedCurr.code !== 'HKD' && (
-                    <View style={styles.rateInfoBox}>
-                      <Text style={styles.rateText}>1 {selectedCurr.code} ≈ {oneUnitInHKD.toFixed(3)} HKD | 約合 ${convertedHKD.toFixed(1)}</Text>
+                      <TouchableOpacity onPress={() => handleGDriveSync('IMPORT')} style={[styles.exportBtn, {marginRight: 5, borderColor: '#AA00FF'}]}>
+                        <Text style={{color: '#AA00FF', fontWeight: 'bold', fontSize: 11}}>☁️ 還原</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={handleExportCSV} style={styles.exportBtn}>
+                        <Text style={{color: '#00E5FF', fontWeight: 'bold', fontSize: 11}}>📄 CSV</Text>
+                      </TouchableOpacity>
                     </View>
                   )}
-                  <TextInput style={styles.cyberInput} placeholder="買咗咩？" placeholderTextColor="#666" value={item} onChangeText={setItem} />
-                  <TextInput style={styles.cyberInput} placeholder="金額" keyboardType="numeric" placeholderTextColor="#666" value={amount} onChangeText={setAmount} />
-                  <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10}}>
-                    <TouchableOpacity style={[styles.datePickerBtn, {flex:1, marginRight:5}]} onPress={() => setShowDatePicker(true)}>
-                      <Text style={{color: '#FFF', fontSize: 13}}>📅 {selectedDate.toLocaleDateString()}</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.attachmentBtn, {flex:1, marginLeft:5}, capturedImage && {backgroundColor: 'rgba(0,229,255,0.3)'}]} onPress={() => setIsPickerVisible(true)}>
-                      <Text style={{color:'#FFF', fontSize: 13}}>📸 附件 {capturedImage ? '✅' : ''}</Text>
-                    </TouchableOpacity>
-                  </View>
-                  {capturedImage && (
-                    <TouchableOpacity onPress={() => setViewingImage(capturedImage)} style={{marginBottom: 10, alignItems: 'center'}}>
-                      <Image source={{uri: capturedImage}} style={{width: '100%', height: 80, borderRadius: 10}} />
-                      <Text style={{color: '#AAA', fontSize: 10, marginTop: 4}}>點擊放大圖片</Text>
-                    </TouchableOpacity>
-                  )}
-                  <View style={styles.catGrid}>
-                    {CATEGORIES.map(cat => (
-                      <TouchableOpacity key={cat.id} onPress={() => setSelectedCat(cat)} style={[styles.catItem, selectedCat.id === cat.id && {borderColor: cat.color, backgroundColor: 'rgba(255,255,255,0.15)'}]}>
-                        <Text style={{fontSize:16}}>{cat.icon}</Text>
-                        <Text style={styles.catLabel}>{cat.label}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  <TouchableOpacity style={styles.addBtn} onPress={saveExpense}><Text style={styles.addBtnText}>{editingId ? "更新記錄" : "確認入數"}</Text></TouchableOpacity>
-                  {editingId && <TouchableOpacity onPress={resetForm} style={{marginTop:8, alignItems:'center'}}><Text style={{color:'#EEE'}}>取消修改</Text></TouchableOpacity>}
                 </View>
-              </KeyboardAvoidingView>
-            ) : (
-              <ScrollView contentContainerStyle={styles.scrollContent} bounces={true}>
-                <View style={styles.searchContainer}>
-                  <TextInput style={styles.searchInput} placeholder="🔍 搜尋..." placeholderTextColor="#CCC" value={searchQuery} onChangeText={setSearchQuery} />
-                </View>
+              </View>
 
-                <View style={styles.headerRow}>
-                  <View style={styles.yearSelector}>
-                    <TouchableOpacity onPress={() => setViewYear(v => v - 1)}><Text style={styles.cyanText}>◀</Text></TouchableOpacity>
-                    <Text style={styles.yearText}>{viewYear}</Text>
-                    <TouchableOpacity onPress={() => setViewYear(v => v + 1)}><Text style={styles.cyanText}>▶</Text></TouchableOpacity>
-                  </View>
-                  <TouchableOpacity onPress={toggleYearlyView} style={[styles.yearlyToggle, isYearlyView && {backgroundColor: '#00E5FF'}]}>
-                    <Text style={{color: isYearlyView ? '#000' : '#00E5FF', fontSize:13, fontWeight:'bold'}}>{isYearlyView ? "返去月覽" : "全年總結"}</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {!isYearlyView && (
-                  <>
-                    {customRange ? (
-                      <TouchableOpacity style={styles.rangeCancelBtn} onPress={() => { setCustomRange(null); resetChartLabels(); }}>
-                        <Text style={{color: '#FFF', fontWeight:'bold', fontSize: 14}}>❌ 取消篩選 ({customRange.start.toLocaleDateString()} - {customRange.end.toLocaleDateString()})</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity style={styles.rangeBtn} onPress={() => setShowCalendar(true)}>
-                        <Text style={{color: '#00E5FF', fontWeight:'bold', fontSize: 13}}>📅 跨月分析 (選擇日期範圍)</Text>
-                      </TouchableOpacity>
-                    )}
-                    {!customRange && (
-                      <View style={styles.monthGrid}>
-                        {MONTHS.map(m => (
-                          <TouchableOpacity key={m} onPress={() => { setSelectedMonth(m); resetChartLabels(); }} style={[styles.monthBox, (selectedMonth === m && styles.activeBorder)]}>
-                            <Text style={{fontSize:10, color: (selectedMonth === m) ? '#00E5FF' : '#EEE'}}>{m}</Text>
-                          </TouchableOpacity>
-                        ))}
+              {activeTab === 'RECORD' ? (
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.fixedContent}>
+                  <View style={styles.cyberCard}>
+                    <Text style={styles.formStatusText}>{editingId ? "正在修改資料..." : "新入數"}</Text>
+                    <TouchableOpacity onPress={() => setSelectedCurr(CURRENCY_LIST[0])} style={[styles.currBtnFull, selectedCurr.code === 'HKD' && styles.currActive]}>
+                      <Text style={[styles.currText, selectedCurr.code === 'HKD' && {color:'#00E5FF'}]}>🇭🇰 HKD 港幣</Text>
+                    </TouchableOpacity>
+                    <View style={styles.currGridSmall}>
+                      {CURRENCY_LIST.slice(1).map(c => (
+                        <TouchableOpacity key={c.code} onPress={() => setSelectedCurr(c)} style={[styles.currBtnSmall, selectedCurr.code === c.code && styles.currActive]}>
+                          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                            <Text style={{fontSize: 12}}>{c.flag}</Text>
+                            <Text style={[styles.currTextSmall, selectedCurr.code === c.code && {color:'#00E5FF'}]}>{" " + c.code}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    {selectedCurr.code !== 'HKD' && (
+                      <View style={styles.rateInfoBox}>
+                        <Text style={styles.rateText}>1 {selectedCurr.code} ≈ {oneUnitInHKD.toFixed(3)} HKD | 約合 ${convertedHKD.toFixed(1)}</Text>
                       </View>
                     )}
-                  </>
-                )}
-
-                {isYearlyView ? (
-                  <View style={styles.yearlyListContainer}>
-                    <AnalyticsCharts filtered={filteredData} catLabel={catLabel} setCatLabel={setCatLabel} dayLabel={dayLabel} setDayLabel={setDayLabel} />
-                    <View style={{marginTop: 20}}>
-                      {MONTHS.map((m, idx) => {
-                        const monthTotal = expenses.filter(e => e.year === viewYear && e.month === m).reduce((s, e) => s + e.hkdAmount, 0);
-                        const max = Math.max(...MONTHS.map(mon => expenses.filter(e => e.year === viewYear && e.month === mon).reduce((s, e) => s + e.hkdAmount, 0)), 1);
-                        return (
-                          <TouchableOpacity key={m} style={styles.yearlyRow} onPress={() => { setSelectedMonth(m); setIsYearlyView(false); resetChartLabels(); setSearchQuery(''); }}>
-                            <Text style={styles.monthLabel}>{m}</Text>
-                            <View style={styles.barTrack}><View style={[styles.barFill, { width: `${(monthTotal/max)*100}%`, backgroundColor: RAINBOW_COLORS[idx % RAINBOW_COLORS.length] }]} /></View>
-                            <Text style={styles.amountLabel}>${monthTotal.toFixed(0)}</Text>
-                          </TouchableOpacity>
-                        );
-                      })}
+                    <TextInput style={styles.cyberInput} placeholder="買咗咩？" placeholderTextColor="#666" value={item} onChangeText={setItem} />
+                    <TextInput style={styles.cyberInput} placeholder="金額" keyboardType="numeric" placeholderTextColor="#666" value={amount} onChangeText={setAmount} />
+                    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10}}>
+                      <TouchableOpacity style={[styles.datePickerBtn, {flex:1, marginRight:5}]} onPress={() => setShowDatePicker(true)}>
+                        <Text style={{color: '#FFF', fontSize: 13}}>📅 {selectedDate.toLocaleDateString()}</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={[styles.attachmentBtn, {flex:1, marginLeft:5}, capturedImage && {backgroundColor: 'rgba(0,229,255,0.3)'}]} onPress={() => setIsPickerVisible(true)}>
+                        <Text style={{color:'#FFF', fontSize: 13}}>📸 附件 {capturedImage ? '✅' : ''}</Text>
+                      </TouchableOpacity>
                     </View>
+                    {capturedImage && (
+                      <TouchableOpacity onPress={() => setViewingImage(capturedImage)} style={{marginBottom: 10, alignItems: 'center'}}>
+                        <Image source={{uri: capturedImage}} style={{width: '100%', height: 80, borderRadius: 10}} />
+                        <Text style={{color: '#AAA', fontSize: 10, marginTop: 4}}>點擊放大圖片</Text>
+                      </TouchableOpacity>
+                    )}
+                    <View style={styles.catGrid}>
+                      {CATEGORIES.map(cat => (
+                        <TouchableOpacity key={cat.id} onPress={() => setSelectedCat(cat)} style={[styles.catItem, selectedCat.id === cat.id && {borderColor: cat.color, backgroundColor: 'rgba(255,255,255,0.15)'}]}>
+                          <Text style={{fontSize:16}}>{cat.icon}</Text>
+                          <Text style={styles.catLabel}>{cat.label}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    <TouchableOpacity style={styles.addBtn} onPress={saveExpense}><Text style={styles.addBtnText}>{editingId ? "更新記錄" : "確認入數"}</Text></TouchableOpacity>
+                    {editingId && <TouchableOpacity onPress={resetForm} style={{marginTop:8, alignItems:'center'}}><Text style={{color:'#EEE'}}>取消修改</Text></TouchableOpacity>}
                   </View>
-                ) : filteredData.length === 0 ? (
-                  <Text style={{color:'#DDD', textAlign:'center', marginTop:40}}>冇記錄 🫧</Text>
-                ) : (
-                  <>
-                    <AnalyticsCharts filtered={filteredData} catLabel={catLabel} setCatLabel={setCatLabel} dayLabel={dayLabel} setDayLabel={setDayLabel} />
-                    {Object.keys(filteredData.reduce((g, e) => { 
-                      const key = `${e.month}-${e.day}`;
-                      (g[key] = g[key] || []).push(e); return g; 
-                    }, {})).sort((a,b) => {
-                      const [am, ad] = a.split('-').map(v => parseInt(v));
-                      const [bm, bd] = b.split('-').map(v => parseInt(v));
-                      return bm !== am ? bm - am : bd - ad;
-                    }).map(dateKey => {
-                      const dayItems = filteredData.filter(e => `${e.month}-${e.day}` === dateKey);
-                      const [m, d] = dateKey.split('-');
-                      return (
-                        <View key={dateKey} style={{marginBottom: 15}}>
-                          <View style={styles.dayHeader}>
-                            <Text style={styles.dayHeaderText}>{m}{d}日</Text>
-                            <Text style={styles.daySumText}>${dayItems.reduce((s, e) => s + e.hkdAmount, 0).toFixed(0)}</Text>
-                          </View>
-                          {dayItems.map(exp => (
-                            <View key={exp.id} style={styles.listItem}>
-                              <Text style={{fontSize: 20}}>{exp.category.icon}</Text>
-                              <View style={{flex:1, marginLeft:12}}>
-                                <Text style={{color: exp.category.color, fontWeight: 'bold'}}>{exp.item}</Text>
-                                <Text style={{color: '#EEE', opacity: 0.9, fontSize:11}}>{exp.currency.code} {exp.foreignAmount}</Text>
-                              </View>
-                              {exp.image && (
-                                <TouchableOpacity onPress={() => setViewingImage(exp.image)} style={{marginRight: 10}}>
-                                  <Image source={{uri: exp.image}} style={styles.listThumbnail} />
-                                </TouchableOpacity>
-                              )}
-                              <Text style={{color: exp.category.color, fontWeight:'bold', marginRight:10}}>${exp.hkdAmount.toFixed(0)}</Text>
-                              <TouchableOpacity onPress={() => startEdit(exp)}><Text>✏️</Text></TouchableOpacity>
-                              <TouchableOpacity onPress={() => handleDelete(exp.id)} style={{marginLeft:10}}><Text>🗑️</Text></TouchableOpacity>
-                            </View>
+                </KeyboardAvoidingView>
+              ) : (
+                <ScrollView contentContainerStyle={styles.scrollContent} bounces={true}>
+                  <View style={styles.searchContainer}>
+                    <TextInput style={styles.searchInput} placeholder="🔍 搜尋..." placeholderTextColor="#CCC" value={searchQuery} onChangeText={setSearchQuery} />
+                  </View>
+
+                  <View style={styles.headerRow}>
+                    <View style={styles.yearSelector}>
+                      <TouchableOpacity onPress={() => setViewYear(v => v - 1)}><Text style={styles.cyanText}>◀</Text></TouchableOpacity>
+                      <Text style={styles.yearText}>{viewYear}</Text>
+                      <TouchableOpacity onPress={() => setViewYear(v => v + 1)}><Text style={styles.cyanText}>▶</Text></TouchableOpacity>
+                    </View>
+                    <TouchableOpacity onPress={toggleYearlyView} style={[styles.yearlyToggle, isYearlyView && {backgroundColor: '#00E5FF'}]}>
+                      <Text style={{color: isYearlyView ? '#000' : '#00E5FF', fontSize:13, fontWeight:'bold'}}>{isYearlyView ? "返去月覽" : "全年總結"}</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {!isYearlyView && (
+                    <>
+                      {customRange ? (
+                        <TouchableOpacity style={styles.rangeCancelBtn} onPress={() => { setCustomRange(null); resetChartLabels(); }}>
+                          <Text style={{color: '#FFF', fontWeight:'bold', fontSize: 14}}>❌ 取消篩選 ({customRange.start.toLocaleDateString()} - {customRange.end.toLocaleDateString()})</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <TouchableOpacity style={styles.rangeBtn} onPress={() => setShowCalendar(true)}>
+                          <Text style={{color: '#00E5FF', fontWeight:'bold', fontSize: 13}}>📅 跨月分析 (選擇日期範圍)</Text>
+                        </TouchableOpacity>
+                      )}
+                      {!customRange && (
+                        <View style={styles.monthGrid}>
+                          {MONTHS.map(m => (
+                            <TouchableOpacity key={m} onPress={() => { setSelectedMonth(m); resetChartLabels(); }} style={[styles.monthBox, (selectedMonth === m && styles.activeBorder)]}>
+                              <Text style={{fontSize:10, color: (selectedMonth === m) ? '#00E5FF' : '#EEE'}}>{m}</Text>
+                            </TouchableOpacity>
                           ))}
                         </View>
-                      );
-                    })}
-                  </>
-                )}
-                <View style={{height: 120}} />
-              </ScrollView>
-            )}
-          </SafeAreaView>
+                      )}
+                    </>
+                  )}
 
-          <View style={styles.nav}>
-            <TouchableOpacity onPress={handleResumeAndGoRecord} style={styles.navBtn}><Text style={[styles.navText, activeTab === 'RECORD' && styles.navActive]}>記帳</Text></TouchableOpacity>
-            <TouchableOpacity onPress={() => setActiveTab('OVERVIEW')} style={styles.navBtn}><Text style={[styles.navText, activeTab === 'OVERVIEW' && styles.navActive]}>總覽</Text></TouchableOpacity>
-          </View>
-        </View>
-      </ImageBackground>
+                  {isYearlyView ? (
+                    <View style={styles.yearlyListContainer}>
+                      <AnalyticsCharts filtered={filteredData} catLabel={catLabel} setCatLabel={setCatLabel} dayLabel={dayLabel} setDayLabel={setDayLabel} />
+                      <View style={{marginTop: 20}}>
+                        {MONTHS.map((m, idx) => {
+                          const monthTotal = expenses.filter(e => e.year === viewYear && e.month === m).reduce((s, e) => s + e.hkdAmount, 0);
+                          const max = Math.max(...MONTHS.map(mon => expenses.filter(e => e.year === viewYear && e.month === mon).reduce((s, e) => s + e.hkdAmount, 0)), 1);
+                          return (
+                            <TouchableOpacity key={m} style={styles.yearlyRow} onPress={() => { setSelectedMonth(m); setIsYearlyView(false); resetChartLabels(); setSearchQuery(''); }}>
+                              <Text style={styles.monthLabel}>{m}</Text>
+                              <View style={styles.barTrack}><View style={[styles.barFill, { width: `${(monthTotal/max)*100}%`, backgroundColor: RAINBOW_COLORS[idx % RAINBOW_COLORS.length] }]} /></View>
+                              <Text style={styles.amountLabel}>${monthTotal.toFixed(0)}</Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  ) : filteredData.length === 0 ? (
+                    <Text style={{color:'#DDD', textAlign:'center', marginTop:40}}>冇記錄 🫧</Text>
+                  ) : (
+                    <>
+                      <AnalyticsCharts filtered={filteredData} catLabel={catLabel} setCatLabel={setCatLabel} dayLabel={dayLabel} setDayLabel={setDayLabel} />
+                      {Object.keys(filteredData.reduce((g, e) => { 
+                        const key = `${e.month}-${e.day}`;
+                        (g[key] = g[key] || []).push(e); return g; 
+                      }, {})).sort((a,b) => {
+                        const [am, ad] = a.split('-').map(v => parseInt(v));
+                        const [bm, bd] = b.split('-').map(v => parseInt(v));
+                        return bm !== am ? bm - am : bd - ad;
+                      }).map(dateKey => {
+                        const dayItems = filteredData.filter(e => `${e.month}-${e.day}` === dateKey);
+                        const [m, d] = dateKey.split('-');
+                        return (
+                          <View key={dateKey} style={{marginBottom: 15}}>
+                            <View style={styles.dayHeader}>
+                              <Text style={styles.dayHeaderText}>{m}{d}日</Text>
+                              <Text style={styles.daySumText}>${dayItems.reduce((s, e) => s + e.hkdAmount, 0).toFixed(0)}</Text>
+                            </View>
+                            {dayItems.map(exp => (
+                              <View key={exp.id} style={styles.listItem}>
+                                <Text style={{fontSize: 20}}>{exp.category.icon}</Text>
+                                <View style={{flex:1, marginLeft:12}}>
+                                  <Text style={{color: exp.category.color, fontWeight: 'bold'}}>{exp.item}</Text>
+                                  <Text style={{color: '#EEE', opacity: 0.9, fontSize:11}}>{exp.currency.code} {exp.foreignAmount}</Text>
+                                </View>
+                                {exp.image && (
+                                  <TouchableOpacity onPress={() => setViewingImage(exp.image)} style={{marginRight: 10}}>
+                                    <Image source={{uri: exp.image}} style={styles.listThumbnail} />
+                                  </TouchableOpacity>
+                                )}
+                                <Text style={{color: exp.category.color, fontWeight:'bold', marginRight:10}}>${exp.hkdAmount.toFixed(0)}</Text>
+                                <TouchableOpacity onPress={() => startEdit(exp)}><Text>✏️</Text></TouchableOpacity>
+                                <TouchableOpacity onPress={() => handleDelete(exp.id)} style={{marginLeft:10}}><Text>🗑️</Text></TouchableOpacity>
+                              </View>
+                            ))}
+                          </View>
+                        );
+                      })}
+                    </>
+                  )}
+                  <View style={{height: 120}} />
+                </ScrollView>
+              )}
+            </SafeAreaView>
 
-      {/* Modals */}
-      <Modal visible={isPickerVisible} transparent animationType="slide" onRequestClose={() => setIsPickerVisible(false)}>
-        <TouchableWithoutFeedback onPress={() => setIsPickerVisible(false)}>
-          <View style={styles.modalBg}>
-            <View style={styles.pickerCard}>
-              <TouchableOpacity style={styles.pickerBtn} onPress={() => pickImage(true)}><Text style={styles.pickerBtnText}>📸 相機</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.pickerBtn} onPress={() => pickImage(false)}><Text style={styles.pickerBtnText}>🖼️ 相簿</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.pickerBtn, {backgroundColor: '#555', marginTop: 10}]} onPress={() => setIsPickerVisible(false)}><Text style={styles.pickerBtnText}>取消</Text></TouchableOpacity>
+            <View style={styles.nav}>
+              <TouchableOpacity onPress={handleResumeAndGoRecord} style={styles.navBtn}><Text style={[styles.navText, activeTab === 'RECORD' && styles.navActive]}>記帳</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => setActiveTab('OVERVIEW')} style={styles.navBtn}><Text style={[styles.navText, activeTab === 'OVERVIEW' && styles.navActive]}>總覽</Text></TouchableOpacity>
             </View>
           </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+        </ImageBackground>
 
-      <Modal visible={!!viewingImage} transparent onRequestClose={() => setViewingImage(null)}>
-        <TouchableOpacity style={styles.modalBg} onPress={() => setViewingImage(null)}>
-          <Image source={{ uri: viewingImage }} style={styles.fullImage} resizeMode="contain" />
-          <TouchableOpacity style={styles.closeImageBtn} onPress={() => setViewingImage(null)}>
-            <Text style={{color: '#FFF', fontWeight: 'bold'}}>關閉</Text>
+        {/* Modals */}
+        <Modal visible={isPickerVisible} transparent animationType="slide" onRequestClose={() => setIsPickerVisible(false)}>
+          <TouchableWithoutFeedback onPress={() => setIsPickerVisible(false)}>
+            <View style={styles.modalBg}>
+              <View style={styles.pickerCard}>
+                <TouchableOpacity style={styles.pickerBtn} onPress={() => pickImage(true)}><Text style={styles.pickerBtnText}>📸 相機</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.pickerBtn} onPress={() => pickImage(false)}><Text style={styles.pickerBtnText}>🖼️ 相簿</Text></TouchableOpacity>
+                <TouchableOpacity style={[styles.pickerBtn, {backgroundColor: '#555', marginTop: 10}]} onPress={() => setIsPickerVisible(false)}><Text style={styles.pickerBtnText}>取消</Text></TouchableOpacity>
+              </View>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+
+        <Modal visible={!!viewingImage} transparent onRequestClose={() => setViewingImage(null)}>
+          <TouchableOpacity style={styles.modalBg} onPress={() => setViewingImage(null)}>
+            <Image source={{ uri: viewingImage }} style={styles.fullImage} resizeMode="contain" />
+            <TouchableOpacity style={styles.closeImageBtn} onPress={() => setViewingImage(null)}>
+              <Text style={{color: '#FFF', fontWeight: 'bold'}}>關閉</Text>
+            </TouchableOpacity>
           </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
+        </Modal>
 
-      <Modal visible={showCalendar} transparent animationType="fade" onRequestClose={() => setShowCalendar(false)}>
-        <TouchableWithoutFeedback onPress={() => setShowCalendar(false)}>
-          <View style={styles.modalBg}>
-            <TouchableWithoutFeedback><View style={{width: '100%', alignItems: 'center'}}><CustomCalendar mode="range" onSelectRange={setCustomRange} onClose={() => setShowCalendar(false)} /></View></TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-      
-      <Modal visible={showDatePicker} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
-        <TouchableWithoutFeedback onPress={() => setShowDatePicker(false)}>
-          <View style={styles.modalBg}>
-            <TouchableWithoutFeedback><View style={{width: '100%', alignItems: 'center'}}><CustomCalendar mode="single" onSelectDate={setSelectedDate} onClose={() => setShowDatePicker(false)} initialDate={selectedDate} /></View></TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
-    </View>
+        <Modal visible={showCalendar} transparent animationType="fade" onRequestClose={() => setShowCalendar(false)}>
+          <TouchableWithoutFeedback onPress={() => setShowCalendar(false)}>
+            <View style={styles.modalBg}>
+              <TouchableWithoutFeedback><View style={{width: '100%', alignItems: 'center'}}><CustomCalendar mode="range" onSelectRange={setCustomRange} onClose={() => setShowCalendar(false)} /></View></TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+        
+        <Modal visible={showDatePicker} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
+          <TouchableWithoutFeedback onPress={() => setShowDatePicker(false)}>
+            <View style={styles.modalBg}>
+              <TouchableWithoutFeedback><View style={{width: '100%', alignItems: 'center'}}><CustomCalendar mode="single" onSelectDate={setSelectedDate} onClose={() => setShowDatePicker(false)} initialDate={selectedDate} /></View></TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+      </View>
+    </SafeAreaProvider>
   );
 }
 
@@ -780,7 +786,7 @@ const styles = StyleSheet.create({
   bgImage: { flex: 1, width: '100%' },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }, 
   loader: { flex: 1, justifyContent: 'center', backgroundColor: '#000' },
-  stickyHeader: { paddingTop: Platform.OS === 'ios' ? 50 : 40, paddingHorizontal: 20, paddingBottom: 10, zIndex: 99 },
+  stickyHeader: { paddingTop: 10, paddingHorizontal: 20, paddingBottom: 10, zIndex: 99 },
   exportBtn: { backgroundColor: 'rgba(0,229,255,0.1)', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: '#00E5FF', justifyContent: 'center' },
   fixedContent: { flex: 1, paddingHorizontal: 15, justifyContent: 'flex-start' },
   scrollContent: { paddingHorizontal: 15, paddingTop: 5 },

@@ -5,15 +5,12 @@
     "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "moneycount",
     "userInterfaceStyle": "dark",
+	"scheme": "moneycount",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.locs1.moneycount2026",
-      "infoPlist": {
-        "CFBundleAllowMixedLocalizations": true
-      }
+      "bundleIdentifier": "com.locs1.moneycount2026"
     },
     "android": {
       "adaptiveIcon": {
@@ -43,9 +40,7 @@
           "backgroundColor": "#000000"
         }
       ],
-      "expo-web-browser",
-      "expo-sharing",
-      "expo-auth-session"
+      "expo-sharing"
     ],
     "extra": {
       "router": {
