@@ -29,7 +29,7 @@ const CATEGORIES = [
   { id: '6', label: '門票', icon: '🎫', color: '#AA00FF' },
   { id: '7', label: '機票', icon: '🛫', color: '#2979FF' },
   { id: '8', label: '手信', icon: '🍓', color: '#FFAB00' },
-  { id: '9', label: '按摩', icon: '💆', color: '#00BFA5' },
+  { id: '9', label: '娛樂', icon: '🎮', color: '#00BFA5' }, // 已更改：按摩 -> 娛樂
   { id: '10', label: '雜項', icon: '🫧', color: '#90A4AE' },
 ];
 
@@ -39,6 +39,44 @@ const CURRENCY_LIST = [
 ];
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+
+// --- 子組件: 貨幣統計表格 ---
+const CurrencySummaryTable = ({ filtered }) => {
+  const summary = useMemo(() => {
+    const map = {};
+    filtered.forEach(e => {
+      const code = e.currency.code;
+      if (!map[code]) map[code] = { amount: 0, flag: e.currency.flag, hkdEquiv: 0 };
+      map[code].amount += e.foreignAmount;
+      map[code].hkdEquiv += e.hkdAmount;
+    });
+    return Object.keys(map).map(code => ({ code, ...map[code] }));
+  }, [filtered]);
+
+  if (summary.length === 0) return null;
+
+  return (
+    <View style={styles.summaryTableContainer}>
+      <Text style={styles.summaryTitle}>💰 貨幣開支總覽</Text>
+      <View style={styles.tableHeader}>
+        <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>幣別</Text>
+        <Text style={[styles.tableHeaderText, { flex: 2, textAlign: 'right' }]}>原始金額</Text>
+        <Text style={[styles.tableHeaderText, { flex: 2, textAlign: 'right' }]}>折合 HKD</Text>
+      </View>
+      {summary.map((item) => (
+        <View key={item.code} style={styles.tableRow}>
+          <Text style={[styles.tableCell, { flex: 1.5 }]}>{item.flag} {item.code}</Text>
+          <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', fontWeight: 'bold' }]}>
+            {item.amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 1 })}
+          </Text>
+          <Text style={[styles.tableCell, { flex: 2, textAlign: 'right', color: '#00E5FF' }]}>
+            ${item.hkdEquiv.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+};
 
 // --- 子組件: 簡易日曆選擇器 ---
 const CustomCalendar = ({ onSelectRange, onSelectDate, onClose, mode = 'range', initialDate = new Date() }) => {
@@ -247,6 +285,9 @@ const AnalyticsCharts = ({ filtered, catLabel, setCatLabel, dayLabel, setDayLabe
           })}
         </View>
       </View>
+
+      {/* 在圖表卡片內部下方加入貨幣統計 Table */}
+      <CurrencySummaryTable filtered={filtered} />
     </View>
   );
 };
@@ -278,11 +319,28 @@ export default function Index() {
   const [catLabel, setCatLabel] = useState({ title: '總計', val: 0, id: null });
   const [dayLabel, setDayLabel] = useState({ title: '總計', val: 0, key: null });
 
-  // 監聽 Tab 切換，進入記帳時 Resume
-  useEffect(() => {
-    if (activeTab === 'RECORD' && !editingId) {
-      resetForm();
+  // 導出 CSV (穩定版)
+  const handleExportCSV = async () => {
+    if (expenses.length === 0) {
+      Alert.alert("提示", "目前沒有數據可以導出");
+      return;
     }
+    const header = "\uFEFF日期,項目,類別,原始金額,幣別,HKD金額\n";
+    const rows = expenses.map(e => 
+      `${e.year}/${e.month}/${e.day},${e.item},${e.category.label},${e.foreignAmount},${e.currency.code},${e.hkdAmount.toFixed(2)}`
+    ).join("\n");
+    const csvString = header + rows;
+    const fileUri = FileSystem.cacheDirectory + `MoneyCount_Export.csv`;
+
+    try {
+      await FileSystem.writeAsStringAsync(fileUri, csvString, { encoding: 'utf8' });
+      const isSharingAvailable = await Sharing.isAvailableAsync();
+      if (isSharingAvailable) { await Sharing.shareAsync(fileUri); }
+    } catch (err) { Alert.alert("導出失敗", err.message); }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'RECORD' && !editingId) { resetForm(); }
   }, [activeTab]);
 
   useEffect(() => {
@@ -342,22 +400,15 @@ export default function Index() {
   }, [expenses, searchQuery, viewYear, selectedMonth, isYearlyView, customRange]);
 
   const toggleYearlyView = () => {
-    if (isYearlyView) {
-      setSearchQuery('');
-      setCustomRange(null);
-      resetChartLabels();
-    } else {
-      setCustomRange(null);
-      resetChartLabels();
-    }
+    setCustomRange(null);
+    resetChartLabels();
     setIsYearlyView(!isYearlyView);
   };
 
   const pickImage = async (useCamera) => {
     setIsPickerVisible(false);
-    const options = { quality: 0.6 }; 
     try {
-      let result = useCamera ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
+      let result = useCamera ? await ImagePicker.launchCameraAsync({quality:0.6}) : await ImagePicker.launchImageLibraryAsync({quality:0.6});
       if (!result.canceled) setCapturedImage(result.assets[0].uri);
     } catch (e) { Alert.alert("錯誤", "無法開啟相機/相簿"); }
   };
@@ -409,41 +460,6 @@ export default function Index() {
     else { Alert.alert("刪除", "確定刪除此筆記錄？", [{ text: "取消" }, { text: "刪除", onPress: doDel, style: 'destructive' }]); }
   };
 
-  // --- 新增功能: CSV 導出 ---
-  const handleExportCSV = async () => {
-    if (expenses.length === 0) {
-      Alert.alert("提示", "目前沒有數據可以導出");
-      return;
-    }
-    
-    const header = "日期,項目,類別,原始金額,幣別,HKD金額\n";
-    const rows = expenses.map(e => 
-      `${e.year}/${e.month}/${e.day},${e.item},${e.category.label},${e.foreignAmount},${e.currency.code},${e.hkdAmount.toFixed(2)}`
-    ).join("\n");
-    
-    const csvString = header + rows;
-    const fileUri = FileSystem.cacheDirectory + `MoneyCount_Backup_${new Date().getTime()}.csv`;
-
-    try {
-      await FileSystem.writeAsStringAsync(fileUri, csvString, { encoding: FileSystem.EncodingType.UTF8 });
-      await Sharing.shareAsync(fileUri);
-    } catch (err) {
-      Alert.alert("導出失敗", err.message);
-    }
-  };
-
-  // --- 新增功能: 模擬 Google Drive 同步 ---
-  const handleSyncCloud = (type) => {
-    if (type === 'BACKUP') {
-      Alert.alert("雲端備份", "正在上傳數據至 Google Drive... (功能串接中)");
-    } else {
-      Alert.alert("雲端還原", "確定要從雲端還原嗎？這將覆蓋現有數據。", [
-        { text: "取消" },
-        { text: "確定還原", onPress: () => Alert.alert("提示", "還原成功！") }
-      ]);
-    }
-  };
-
   const currentRate = rates[selectedCurr.code] || 1;
   const oneUnitInHKD = 1 / currentRate; 
   const convertedHKD = (parseFloat(amount) || 0) / currentRate;
@@ -456,7 +472,14 @@ export default function Index() {
         <View style={styles.overlay}>
           <SafeAreaView style={{flex:1}}>
             <View style={styles.stickyHeader}>
-              <Text style={styles.headerTitle}>MoneyCount 💸</Text>
+              <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                <Text style={styles.headerTitle}>MoneyCount 💸</Text>
+                {activeTab === 'OVERVIEW' && (
+                  <TouchableOpacity onPress={handleExportCSV} style={styles.exportBtn}>
+                    <Text style={{color: '#00E5FF', fontWeight: 'bold', fontSize: 12}}>📄 導出 CSV</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
 
             {activeTab === 'RECORD' ? (
@@ -511,19 +534,6 @@ export default function Index() {
               </KeyboardAvoidingView>
             ) : (
               <ScrollView contentContainerStyle={styles.scrollContent} bounces={true}>
-                {/* 新增：工具欄 */}
-                <View style={styles.toolBar}>
-                  <TouchableOpacity style={styles.toolItem} onPress={handleExportCSV}>
-                    <Text style={styles.toolText}>📄 導出 CSV</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.toolItem} onPress={() => handleSyncCloud('BACKUP')}>
-                    <Text style={styles.toolText}>☁️ 備份</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.toolItem, {borderColor: '#555'}]} onPress={() => handleSyncCloud('RESTORE')}>
-                    <Text style={[styles.toolText, {color: '#AAA'}]}>🔄 還原</Text>
-                  </TouchableOpacity>
-                </View>
-
                 <View style={styles.searchContainer}>
                   <TextInput style={styles.searchInput} placeholder="🔍 搜尋..." placeholderTextColor="#CCC" value={searchQuery} onChangeText={setSearchQuery} />
                 </View>
@@ -634,6 +644,7 @@ export default function Index() {
         </View>
       </ImageBackground>
 
+      {/* Modals 保持不變 */}
       <Modal visible={isPickerVisible} transparent animationType="slide" onRequestClose={() => setIsPickerVisible(false)}>
         <TouchableWithoutFeedback onPress={() => setIsPickerVisible(false)}>
           <View style={styles.modalBg}>
@@ -679,7 +690,8 @@ const styles = StyleSheet.create({
   bgImage: { flex: 1, width: '100%' },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }, 
   loader: { flex: 1, justifyContent: 'center', backgroundColor: '#000' },
-  stickyHeader: { paddingTop: Platform.OS === 'ios' ? 10 : 40, paddingHorizontal: 20, paddingBottom: 5, zIndex: 99 },
+  stickyHeader: { paddingTop: Platform.OS === 'ios' ? 50 : 40, paddingHorizontal: 20, paddingBottom: 10, zIndex: 99 },
+  exportBtn: { backgroundColor: 'rgba(0,229,255,0.1)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: '#00E5FF' },
   fixedContent: { flex: 1, paddingHorizontal: 15, justifyContent: 'flex-start' },
   scrollContent: { paddingHorizontal: 15, paddingTop: 5 },
   headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#00E5FF' },
@@ -764,9 +776,12 @@ const styles = StyleSheet.create({
   barTrack: { flex: 1, height: 12, backgroundColor: '#333', borderRadius: 6, marginHorizontal: 8, overflow: 'hidden' },
   barFill: { height: '100%' },
   amountLabel: { color: '#00E5FF', width: 65, textAlign: 'right', fontWeight: 'bold', fontSize: 12 },
-  
-  // 新增樣式
-  toolBar: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
-  toolItem: { flex: 1, padding: 8, borderRadius: 10, borderWidth: 1, borderColor: '#00E5FF', marginRight: 5, alignItems: 'center', backgroundColor: 'rgba(0,229,255,0.05)' },
-  toolText: { color: '#00E5FF', fontSize: 11, fontWeight: 'bold' }
+
+  // --- 新增 Table 樣式 ---
+  summaryTableContainer: { marginTop: 30, padding: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 15 },
+  summaryTitle: { color: '#FFF', fontSize: 14, fontWeight: 'bold', marginBottom: 10 },
+  tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#333', paddingBottom: 5, marginBottom: 5 },
+  tableHeaderText: { color: '#AAA', fontSize: 11 },
+  tableRow: { flexDirection: 'row', paddingVertical: 8, borderBottomWidth: 0.5, borderBottomColor: '#222' },
+  tableCell: { color: '#EEE', fontSize: 13 },
 });
