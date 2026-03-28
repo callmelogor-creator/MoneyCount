@@ -8,9 +8,12 @@
     "userInterfaceStyle": "dark",
     "scheme": "moneycount",
     "newArchEnabled": true,
+    "packagerOpts": {
+      "sourceExts": ["js", "jsx", "json", "ts", "tsx"]
+    },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.locs1.moneycount2026"
+      "bundleIdentifier": "com.locs67.moneycount2026"
     },
     "android": {
       "adaptiveIcon": {
