@@ -1,9 +1,11 @@
 module.exports = function(api) {
   api.cache(true);
   return {
-    presets: ['babel-preset-expo'],
+    presets: [
+      ['babel-preset-expo', { jsxRuntime: 'automatic' }]
+    ],
     plugins: [
-      'react-native-reanimated/plugin', // 只留呢句就夠
+      'react-native-reanimated/plugin',
     ],
   };
 };
