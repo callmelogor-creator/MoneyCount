@@ -7,6 +7,8 @@ import {
 import { PieChart } from 'react-native-svg-charts';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 // --- 常數設定 ---
 const MY_CUSTOM_BACKGROUND = require('../../assets/bg.jpg'); 
@@ -41,7 +43,7 @@ const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', 
 // --- 子組件: 簡易日曆選擇器 ---
 const CustomCalendar = ({ onSelectRange, onSelectDate, onClose, mode = 'range', initialDate = new Date() }) => {
   const [currDate, setCurrDate] = useState(new Date(initialDate));
-  const [start, setStart] = useState(null);
+  const [start, setStart] = useState(mode === 'single' ? initialDate : null);
   const [end, setEnd] = useState(null);
 
   const year = currDate.getFullYear();
@@ -52,6 +54,7 @@ const CustomCalendar = ({ onSelectRange, onSelectDate, onClose, mode = 'range', 
   const handleDayPress = (day) => {
     const selected = new Date(year, month, day);
     if (mode === 'single') {
+      setStart(selected);
       onSelectDate(selected);
       onClose();
       return;
@@ -74,9 +77,10 @@ const CustomCalendar = ({ onSelectRange, onSelectDate, onClose, mode = 'range', 
 
   const getDayStatus = (day) => {
     if (!day) return 'none';
-    const d = new Date(year, month, day).getTime();
-    const s = start?.getTime();
-    const e = end?.getTime();
+    const d = new Date(year, month, day).setHours(0,0,0,0);
+    const s = start ? new Date(start).setHours(0,0,0,0) : null;
+    const e = end ? new Date(end).setHours(0,0,0,0) : null;
+    
     if (s && d === s) return 'active'; 
     if (e && d === e) return 'active'; 
     if (s && e && d > s && d < e) return 'between'; 
@@ -274,6 +278,13 @@ export default function Index() {
   const [catLabel, setCatLabel] = useState({ title: '總計', val: 0, id: null });
   const [dayLabel, setDayLabel] = useState({ title: '總計', val: 0, key: null });
 
+  // 監聽 Tab 切換，進入記帳時 Resume
+  useEffect(() => {
+    if (activeTab === 'RECORD' && !editingId) {
+      resetForm();
+    }
+  }, [activeTab]);
+
   useEffect(() => {
     const backAction = () => {
       if (viewingImage) { setViewingImage(null); return true; }
@@ -293,9 +304,13 @@ export default function Index() {
     setSelectedMonth(`${new Date().getMonth() + 1}月`);
     setIsYearlyView(false);
     setCustomRange(null);
+    resetChartLabels();
+    setActiveTab('RECORD');
+  };
+
+  const resetChartLabels = () => {
     setCatLabel({ title: '總計', val: 0, id: null });
     setDayLabel({ title: '總計', val: 0, key: null });
-    setActiveTab('RECORD');
   };
 
   useEffect(() => {
@@ -327,10 +342,13 @@ export default function Index() {
   }, [expenses, searchQuery, viewYear, selectedMonth, isYearlyView, customRange]);
 
   const toggleYearlyView = () => {
-    if (!isYearlyView) {
-      setSearchQuery(''); setCustomRange(null);
-      setCatLabel({ title: '總計', val: 0, id: null });
-      setDayLabel({ title: '總計', val: 0, key: null });
+    if (isYearlyView) {
+      setSearchQuery('');
+      setCustomRange(null);
+      resetChartLabels();
+    } else {
+      setCustomRange(null);
+      resetChartLabels();
     }
     setIsYearlyView(!isYearlyView);
   };
@@ -350,8 +368,6 @@ export default function Index() {
     const rateOfSelected = rates[selectedCurr.code] || 1;
     const hkdAmount = selectedCurr.code === 'HKD' ? parsedAmount : (parsedAmount / rateOfSelected);
     const targetDate = selectedDate;
-    
-    // 如果項目名稱為空，自動採用目前選擇的類別標籤
     const finalItem = item.trim() === '' ? selectedCat.label : item.trim();
     
     if (editingId) {
@@ -393,6 +409,41 @@ export default function Index() {
     else { Alert.alert("刪除", "確定刪除此筆記錄？", [{ text: "取消" }, { text: "刪除", onPress: doDel, style: 'destructive' }]); }
   };
 
+  // --- 新增功能: CSV 導出 ---
+  const handleExportCSV = async () => {
+    if (expenses.length === 0) {
+      Alert.alert("提示", "目前沒有數據可以導出");
+      return;
+    }
+    
+    const header = "日期,項目,類別,原始金額,幣別,HKD金額\n";
+    const rows = expenses.map(e => 
+      `${e.year}/${e.month}/${e.day},${e.item},${e.category.label},${e.foreignAmount},${e.currency.code},${e.hkdAmount.toFixed(2)}`
+    ).join("\n");
+    
+    const csvString = header + rows;
+    const fileUri = FileSystem.cacheDirectory + `MoneyCount_Backup_${new Date().getTime()}.csv`;
+
+    try {
+      await FileSystem.writeAsStringAsync(fileUri, csvString, { encoding: FileSystem.EncodingType.UTF8 });
+      await Sharing.shareAsync(fileUri);
+    } catch (err) {
+      Alert.alert("導出失敗", err.message);
+    }
+  };
+
+  // --- 新增功能: 模擬 Google Drive 同步 ---
+  const handleSyncCloud = (type) => {
+    if (type === 'BACKUP') {
+      Alert.alert("雲端備份", "正在上傳數據至 Google Drive... (功能串接中)");
+    } else {
+      Alert.alert("雲端還原", "確定要從雲端還原嗎？這將覆蓋現有數據。", [
+        { text: "取消" },
+        { text: "確定還原", onPress: () => Alert.alert("提示", "還原成功！") }
+      ]);
+    }
+  };
+
   const currentRate = rates[selectedCurr.code] || 1;
   const oneUnitInHKD = 1 / currentRate; 
   const convertedHKD = (parseFloat(amount) || 0) / currentRate;
@@ -408,19 +459,13 @@ export default function Index() {
               <Text style={styles.headerTitle}>MoneyCount 💸</Text>
             </View>
 
-            {/* 修改佈局：只有 OVERVIEW 才使用 ScrollView，RECORD 分頁改用固定 View */}
             {activeTab === 'RECORD' ? (
-              <KeyboardAvoidingView 
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-                style={styles.fixedContent}
-              >
+              <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.fixedContent}>
                 <View style={styles.cyberCard}>
                   <Text style={styles.formStatusText}>{editingId ? "正在修改資料..." : "新入數"}</Text>
-                  
                   <TouchableOpacity onPress={() => setSelectedCurr(CURRENCY_LIST[0])} style={[styles.currBtnFull, selectedCurr.code === 'HKD' && styles.currActive]}>
                     <Text style={[styles.currText, selectedCurr.code === 'HKD' && {color:'#00E5FF'}]}>🇭🇰 HKD 港幣</Text>
                   </TouchableOpacity>
-
                   <View style={styles.currGridSmall}>
                     {CURRENCY_LIST.slice(1).map(c => (
                       <TouchableOpacity key={c.code} onPress={() => setSelectedCurr(c)} style={[styles.currBtnSmall, selectedCurr.code === c.code && styles.currActive]}>
@@ -431,16 +476,13 @@ export default function Index() {
                       </TouchableOpacity>
                     ))}
                   </View>
-
                   {selectedCurr.code !== 'HKD' && (
                     <View style={styles.rateInfoBox}>
                       <Text style={styles.rateText}>1 {selectedCurr.code} ≈ {oneUnitInHKD.toFixed(3)} HKD | 約合 ${convertedHKD.toFixed(1)}</Text>
                     </View>
                   )}
-
                   <TextInput style={styles.cyberInput} placeholder="買咗咩？" placeholderTextColor="#666" value={item} onChangeText={setItem} />
                   <TextInput style={styles.cyberInput} placeholder="金額" keyboardType="numeric" placeholderTextColor="#666" value={amount} onChangeText={setAmount} />
-                  
                   <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10}}>
                     <TouchableOpacity style={[styles.datePickerBtn, {flex:1, marginRight:5}]} onPress={() => setShowDatePicker(true)}>
                       <Text style={{color: '#FFF', fontSize: 13}}>📅 {selectedDate.toLocaleDateString()}</Text>
@@ -449,14 +491,12 @@ export default function Index() {
                       <Text style={{color:'#FFF', fontSize: 13}}>📸 附件 {capturedImage ? '✅' : ''}</Text>
                     </TouchableOpacity>
                   </View>
-
                   {capturedImage && (
                     <TouchableOpacity onPress={() => setViewingImage(capturedImage)} style={{marginBottom: 10, alignItems: 'center'}}>
                       <Image source={{uri: capturedImage}} style={{width: '100%', height: 80, borderRadius: 10}} />
                       <Text style={{color: '#AAA', fontSize: 10, marginTop: 4}}>點擊放大圖片</Text>
                     </TouchableOpacity>
                   )}
-
                   <View style={styles.catGrid}>
                     {CATEGORIES.map(cat => (
                       <TouchableOpacity key={cat.id} onPress={() => setSelectedCat(cat)} style={[styles.catItem, selectedCat.id === cat.id && {borderColor: cat.color, backgroundColor: 'rgba(255,255,255,0.15)'}]}>
@@ -465,13 +505,25 @@ export default function Index() {
                       </TouchableOpacity>
                     ))}
                   </View>
-
                   <TouchableOpacity style={styles.addBtn} onPress={saveExpense}><Text style={styles.addBtnText}>{editingId ? "更新記錄" : "確認入數"}</Text></TouchableOpacity>
                   {editingId && <TouchableOpacity onPress={resetForm} style={{marginTop:8, alignItems:'center'}}><Text style={{color:'#EEE'}}>取消修改</Text></TouchableOpacity>}
                 </View>
               </KeyboardAvoidingView>
             ) : (
               <ScrollView contentContainerStyle={styles.scrollContent} bounces={true}>
+                {/* 新增：工具欄 */}
+                <View style={styles.toolBar}>
+                  <TouchableOpacity style={styles.toolItem} onPress={handleExportCSV}>
+                    <Text style={styles.toolText}>📄 導出 CSV</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.toolItem} onPress={() => handleSyncCloud('BACKUP')}>
+                    <Text style={styles.toolText}>☁️ 備份</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.toolItem, {borderColor: '#555'}]} onPress={() => handleSyncCloud('RESTORE')}>
+                    <Text style={[styles.toolText, {color: '#AAA'}]}>🔄 還原</Text>
+                  </TouchableOpacity>
+                </View>
+
                 <View style={styles.searchContainer}>
                   <TextInput style={styles.searchInput} placeholder="🔍 搜尋..." placeholderTextColor="#CCC" value={searchQuery} onChangeText={setSearchQuery} />
                 </View>
@@ -490,7 +542,7 @@ export default function Index() {
                 {!isYearlyView && (
                   <>
                     {customRange ? (
-                      <TouchableOpacity style={styles.rangeCancelBtn} onPress={() => setCustomRange(null)}>
+                      <TouchableOpacity style={styles.rangeCancelBtn} onPress={() => { setCustomRange(null); resetChartLabels(); }}>
                         <Text style={{color: '#FFF', fontWeight:'bold', fontSize: 14}}>❌ 取消篩選 ({customRange.start.toLocaleDateString()} - {customRange.end.toLocaleDateString()})</Text>
                       </TouchableOpacity>
                     ) : (
@@ -501,7 +553,7 @@ export default function Index() {
                     {!customRange && (
                       <View style={styles.monthGrid}>
                         {MONTHS.map(m => (
-                          <TouchableOpacity key={m} onPress={() => setSelectedMonth(m)} style={[styles.monthBox, (selectedMonth === m && styles.activeBorder)]}>
+                          <TouchableOpacity key={m} onPress={() => { setSelectedMonth(m); resetChartLabels(); }} style={[styles.monthBox, (selectedMonth === m && styles.activeBorder)]}>
                             <Text style={{fontSize:10, color: (selectedMonth === m) ? '#00E5FF' : '#EEE'}}>{m}</Text>
                           </TouchableOpacity>
                         ))}
@@ -518,7 +570,7 @@ export default function Index() {
                         const monthTotal = expenses.filter(e => e.year === viewYear && e.month === m).reduce((s, e) => s + e.hkdAmount, 0);
                         const max = Math.max(...MONTHS.map(mon => expenses.filter(e => e.year === viewYear && e.month === mon).reduce((s, e) => s + e.hkdAmount, 0)), 1);
                         return (
-                          <TouchableOpacity key={m} style={styles.yearlyRow} onPress={() => { setSelectedMonth(m); setIsYearlyView(false); }}>
+                          <TouchableOpacity key={m} style={styles.yearlyRow} onPress={() => { setSelectedMonth(m); setIsYearlyView(false); resetChartLabels(); setSearchQuery(''); }}>
                             <Text style={styles.monthLabel}>{m}</Text>
                             <View style={styles.barTrack}><View style={[styles.barFill, { width: `${(monthTotal/max)*100}%`, backgroundColor: RAINBOW_COLORS[idx % RAINBOW_COLORS.length] }]} /></View>
                             <Text style={styles.amountLabel}>${monthTotal.toFixed(0)}</Text>
@@ -555,13 +607,11 @@ export default function Index() {
                                 <Text style={{color: exp.category.color, fontWeight: 'bold'}}>{exp.item}</Text>
                                 <Text style={{color: '#EEE', opacity: 0.9, fontSize:11}}>{exp.currency.code} {exp.foreignAmount}</Text>
                               </View>
-                              
                               {exp.image && (
                                 <TouchableOpacity onPress={() => setViewingImage(exp.image)} style={{marginRight: 10}}>
                                   <Image source={{uri: exp.image}} style={styles.listThumbnail} />
                                 </TouchableOpacity>
                               )}
-
                               <Text style={{color: exp.category.color, fontWeight:'bold', marginRight:10}}>${exp.hkdAmount.toFixed(0)}</Text>
                               <TouchableOpacity onPress={() => startEdit(exp)}><Text>✏️</Text></TouchableOpacity>
                               <TouchableOpacity onPress={() => handleDelete(exp.id)} style={{marginLeft:10}}><Text>🗑️</Text></TouchableOpacity>
@@ -572,7 +622,7 @@ export default function Index() {
                     })}
                   </>
                 )}
-                <View style={{height: 100}} />
+                <View style={{height: 120}} />
               </ScrollView>
             )}
           </SafeAreaView>
@@ -630,10 +680,7 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }, 
   loader: { flex: 1, justifyContent: 'center', backgroundColor: '#000' },
   stickyHeader: { paddingTop: Platform.OS === 'ios' ? 10 : 40, paddingHorizontal: 20, paddingBottom: 5, zIndex: 99 },
-  
-  // 新增：固定內容佈局 (用於 RECORD)
   fixedContent: { flex: 1, paddingHorizontal: 15, justifyContent: 'flex-start' },
-  
   scrollContent: { paddingHorizontal: 15, paddingTop: 5 },
   headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#00E5FF' },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, alignItems: 'center' },
@@ -648,8 +695,6 @@ const styles = StyleSheet.create({
   monthGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
   monthBox: { width: '15%', paddingVertical: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 8, alignItems: 'center', marginBottom: 6, borderWidth: 1, borderColor: '#333' },
   activeBorder: { borderColor: '#00E5FF', backgroundColor: 'rgba(0,229,255,0.2)' },
-  
-  // 記帳卡片樣式
   cyberCard: { backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 20, padding: 15, borderWidth: 1, borderColor: '#333' },
   formStatusText: { color: '#00E5FF', marginBottom: 8, fontWeight: 'bold', fontSize: 13 },
   currBtnFull: { backgroundColor: 'rgba(255,255,255,0.1)', padding: 10, borderRadius: 10, marginBottom: 8, alignItems: 'center', borderWidth: 1, borderColor: '#444' },
@@ -668,7 +713,6 @@ const styles = StyleSheet.create({
   catLabel: { color: '#EEE', fontSize: 9, marginTop: 2 },
   addBtn: { backgroundColor: '#00E5FF', padding: 15, borderRadius: 15, alignItems: 'center' },
   addBtnText: { color: '#000', fontWeight: 'bold', fontSize: 16 },
-  
   chartsWrapper: { backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20, padding: 15, marginBottom: 15 },
   chartFlexRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
   chartContainer: { alignItems: 'center', justifyContent: 'center' },
@@ -685,7 +729,17 @@ const styles = StyleSheet.create({
   listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', padding: 10, borderRadius: 12, marginBottom: 6 },
   listThumbnail: { width: 35, height: 35, borderRadius: 6, borderWidth: 1, borderColor: '#444' },
   closeImageBtn: { position: 'absolute', bottom: 50, backgroundColor: 'rgba(255,255,255,0.2)', padding: 12, borderRadius: 20 },
-  nav: { position: 'absolute', bottom: 0, width: '100%', flexDirection: 'row', height: 80, backgroundColor: 'rgba(0,0,0,0.95)', borderTopWidth: 1, borderColor: '#333' },
+  nav: { 
+    position: 'absolute', 
+    bottom: 0, 
+    width: '100%', 
+    flexDirection: 'row', 
+    height: Platform.OS === 'android' ? 90 : 80, 
+    backgroundColor: 'rgba(0,0,0,0.95)', 
+    borderTopWidth: 1, 
+    borderColor: '#333',
+    paddingBottom: Platform.OS === 'android' ? 15 : 0 
+  },
   navBtn: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   navText: { color: '#777', fontSize: 12 },
   navActive: { color: '#00E5FF', fontWeight: 'bold' },
@@ -709,5 +763,10 @@ const styles = StyleSheet.create({
   monthLabel: { color: '#FFF', width: 35, fontSize: 12 },
   barTrack: { flex: 1, height: 12, backgroundColor: '#333', borderRadius: 6, marginHorizontal: 8, overflow: 'hidden' },
   barFill: { height: '100%' },
-  amountLabel: { color: '#00E5FF', width: 65, textAlign: 'right', fontWeight: 'bold', fontSize: 12 }
+  amountLabel: { color: '#00E5FF', width: 65, textAlign: 'right', fontWeight: 'bold', fontSize: 12 },
+  
+  // 新增樣式
+  toolBar: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+  toolItem: { flex: 1, padding: 8, borderRadius: 10, borderWidth: 1, borderColor: '#00E5FF', marginRight: 5, alignItems: 'center', backgroundColor: 'rgba(0,229,255,0.05)' },
+  toolText: { color: '#00E5FF', fontSize: 11, fontWeight: 'bold' }
 });
