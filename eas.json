@@ -13,7 +13,9 @@
         "buildType": "apk"
       },
       "distribution": "internal",
-      "cache": false
+      "cache": {
+        "disabled": true
+      }
     },
     "production": {
       "autoIncrement": true
