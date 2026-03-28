@@ -9,9 +9,18 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
+
+// 必須呼叫此方法以確保 AuthSession 在 Android/iOS 正常運作
+WebBrowser.maybeCompleteAuthSession();
 
 // --- 常數設定 ---
 const MY_CUSTOM_BACKGROUND = require('../../assets/bg.jpg'); 
+
+// Google API 設定 (請在此輸入你在 Google Cloud Console 申請的 ID)
+const GOOGLE_CLIENT_ID = '你的_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 
 const RAINBOW_COLORS = [
   '#FF4081', '#00E5FF', '#76FF03', '#AA00FF', '#FFAB00', 
@@ -29,7 +38,7 @@ const CATEGORIES = [
   { id: '6', label: '門票', icon: '🎫', color: '#AA00FF' },
   { id: '7', label: '機票', icon: '🛫', color: '#2979FF' },
   { id: '8', label: '手信', icon: '🍓', color: '#FFAB00' },
-  { id: '9', label: '娛樂', icon: '🎮', color: '#00BFA5' }, // 已更改：按摩 -> 娛樂
+  { id: '9', label: '娛樂', icon: '🎮', color: '#00BFA5' },
   { id: '10', label: '雜項', icon: '🫧', color: '#90A4AE' },
 ];
 
@@ -286,7 +295,6 @@ const AnalyticsCharts = ({ filtered, catLabel, setCatLabel, dayLabel, setDayLabe
         </View>
       </View>
 
-      {/* 在圖表卡片內部下方加入貨幣統計 Table */}
       <CurrencySummaryTable filtered={filtered} />
     </View>
   );
@@ -319,7 +327,87 @@ export default function Index() {
   const [catLabel, setCatLabel] = useState({ title: '總計', val: 0, id: null });
   const [dayLabel, setDayLabel] = useState({ title: '總計', val: 0, key: null });
 
-  // 導出 CSV (穩定版)
+  // --- Google Drive 導出/導入邏輯 ---
+  const [request, response, promptAsync] = AuthSession.useAuthRequest(
+    {
+      clientId: GOOGLE_CLIENT_ID,
+      scopes: [DRIVE_SCOPE],
+    },
+    { authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth' }
+  );
+
+  const handleGDriveSync = async (mode) => {
+    // mode: 'EXPORT' or 'IMPORT'
+    const result = await promptAsync();
+    if (result?.type !== 'success') {
+      Alert.alert("授權失敗", "需要 Google 授權才能使用雲端功能");
+      return;
+    }
+
+    setLoading(true);
+    const accessToken = result.params.access_token;
+
+    try {
+      if (mode === 'EXPORT') {
+        // 1. 檢查是否已有備份檔
+        const listRes = await fetch('https://www.googleapis.com/drive/v3/files?spaces=appDataFolder', {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const listData = await listRes.json();
+        const existingFile = listData.files.find(f => f.name === 'moneycount_backup.json');
+
+        const metadata = { name: 'moneycount_backup.json', parents: ['appDataFolder'] };
+        const data = JSON.stringify(expenses);
+
+        if (existingFile) {
+          // 更新現有文件
+          await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=media`, {
+            method: 'PATCH',
+            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+            body: data
+          });
+        } else {
+          // 新建文件 (需分兩步：Meta + Content)
+          const form = new FormData();
+          form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+          form.append('file', new Blob([data], { type: 'application/json' }));
+          
+          await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${accessToken}` },
+            body: form
+          });
+        }
+        Alert.alert("成功", "數據已備份至 Google Drive (App Data)");
+      } else {
+        // IMPORT 邏輯
+        const listRes = await fetch('https://www.googleapis.com/drive/v3/files?spaces=appDataFolder', {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const listData = await listRes.json();
+        const existingFile = listData.files.find(f => f.name === 'moneycount_backup.json');
+
+        if (!existingFile) {
+          Alert.alert("提示", "雲端找不到備份檔案");
+        } else {
+          const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${existingFile.id}?alt=media`, {
+            headers: { Authorization: `Bearer ${accessToken}` }
+          });
+          const importedData = await fileRes.json();
+          if (Array.isArray(importedData)) {
+            setExpenses(importedData);
+            Alert.alert("成功", "已從雲端還原所有數據");
+          }
+        }
+      }
+    } catch (err) {
+      Alert.alert("雲端操作失敗", err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 導出 CSV (原有功能)
   const handleExportCSV = async () => {
     if (expenses.length === 0) {
       Alert.alert("提示", "目前沒有數據可以導出");
@@ -475,9 +563,17 @@ export default function Index() {
               <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
                 <Text style={styles.headerTitle}>MoneyCount 💸</Text>
                 {activeTab === 'OVERVIEW' && (
-                  <TouchableOpacity onPress={handleExportCSV} style={styles.exportBtn}>
-                    <Text style={{color: '#00E5FF', fontWeight: 'bold', fontSize: 12}}>📄 導出 CSV</Text>
-                  </TouchableOpacity>
+                  <View style={{flexDirection: 'row'}}>
+                    <TouchableOpacity onPress={() => handleGDriveSync('EXPORT')} style={[styles.exportBtn, {marginRight: 5, borderColor: '#76FF03'}]}>
+                      <Text style={{color: '#76FF03', fontWeight: 'bold', fontSize: 11}}>☁️ 備份</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => handleGDriveSync('IMPORT')} style={[styles.exportBtn, {marginRight: 5, borderColor: '#AA00FF'}]}>
+                      <Text style={{color: '#AA00FF', fontWeight: 'bold', fontSize: 11}}>☁️ 還原</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={handleExportCSV} style={styles.exportBtn}>
+                      <Text style={{color: '#00E5FF', fontWeight: 'bold', fontSize: 11}}>📄 CSV</Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
               </View>
             </View>
@@ -644,7 +740,7 @@ export default function Index() {
         </View>
       </ImageBackground>
 
-      {/* Modals 保持不變 */}
+      {/* Modals */}
       <Modal visible={isPickerVisible} transparent animationType="slide" onRequestClose={() => setIsPickerVisible(false)}>
         <TouchableWithoutFeedback onPress={() => setIsPickerVisible(false)}>
           <View style={styles.modalBg}>
@@ -691,7 +787,7 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }, 
   loader: { flex: 1, justifyContent: 'center', backgroundColor: '#000' },
   stickyHeader: { paddingTop: Platform.OS === 'ios' ? 50 : 40, paddingHorizontal: 20, paddingBottom: 10, zIndex: 99 },
-  exportBtn: { backgroundColor: 'rgba(0,229,255,0.1)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: '#00E5FF' },
+  exportBtn: { backgroundColor: 'rgba(0,229,255,0.1)', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: '#00E5FF', justifyContent: 'center' },
   fixedContent: { flex: 1, paddingHorizontal: 15, justifyContent: 'flex-start' },
   scrollContent: { paddingHorizontal: 15, paddingTop: 5 },
   headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#00E5FF' },
@@ -776,8 +872,6 @@ const styles = StyleSheet.create({
   barTrack: { flex: 1, height: 12, backgroundColor: '#333', borderRadius: 6, marginHorizontal: 8, overflow: 'hidden' },
   barFill: { height: '100%' },
   amountLabel: { color: '#00E5FF', width: 65, textAlign: 'right', fontWeight: 'bold', fontSize: 12 },
-
-  // --- 新增 Table 樣式 ---
   summaryTableContainer: { marginTop: 30, padding: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 15 },
   summaryTitle: { color: '#FFF', fontSize: 14, fontWeight: 'bold', marginBottom: 10 },
   tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#333', paddingBottom: 5, marginBottom: 5 },
