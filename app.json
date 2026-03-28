@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Moneycount",
+    "name": "MoneyCount",
     "slug": "moneycount-2026",
     "version": "1.0.2",
     "orientation": "portrait",
@@ -9,7 +9,11 @@
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.locs1.moneycount2026",
+      "infoPlist": {
+        "CFBundleAllowMixedLocalizations": true
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -40,10 +44,13 @@
         }
       ],
       "expo-web-browser",
-      "expo-sharing"
+      "expo-sharing",
+      "expo-auth-session"
     ],
     "extra": {
-      "router": {},
+      "router": {
+        "origin": false
+      },
       "eas": {
         "projectId": "df1e0ef1-4495-44d6-ad66-f735866542ec"
       }
