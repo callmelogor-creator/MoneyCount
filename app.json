@@ -8,9 +8,6 @@
     "userInterfaceStyle": "dark",
     "scheme": "moneycount",
     "newArchEnabled": true,
-    "packagerOpts": {
-      "sourceExts": ["js", "jsx", "json"]
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.locs67.moneycount2026"
@@ -25,12 +22,8 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png",
-      "display": "standalone",
-      "themeColor": "#000000",
-      "backgroundColor": "#000000",
-      "lang": "zh-Hant",
-      "description": "MoneyCount - 旅行入數助手"
+      "favicon": "./assets/images/favicon.png"
+      // ... 之後啲 web 設定保持不變
     },
     "plugins": [
       "expo-router",
