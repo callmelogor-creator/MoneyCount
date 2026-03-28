@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "dark",
-	"scheme": "moneycount",
+    "scheme": "moneycount",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
@@ -18,7 +18,7 @@
         "foregroundImage": "./assets/images/icon.png"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.locs1.moneycount2026"
+      "package": "com.locs67.moneycount2026"
     },
     "web": {
       "output": "static",
@@ -47,8 +47,9 @@
         "origin": false
       },
       "eas": {
-        "projectId": "df1e0ef1-4495-44d6-ad66-f735866542ec"
+        "projectId": "3ed69bae-990f-4f57-b22b-0494f0c03ef5"
       }
-    }
+    },
+    "owner": "locs67"
   }
 }

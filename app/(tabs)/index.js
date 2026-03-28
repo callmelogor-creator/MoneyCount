@@ -4,26 +4,16 @@ import {
   ActivityIndicator, ImageBackground, Alert, Platform, Image, Modal,
   BackHandler, TouchableWithoutFeedback, KeyboardAvoidingView
 } from 'react-native';
-// 修正：改由專門套件導入 SafeAreaView 以消除警告
+// 修正 SafeAreaView：從正確的套件匯入以消除棄用警告
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { PieChart } from 'react-native-svg-charts';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
-// 修正：導入新版或 legacy 接口，這裡使用官方建議的對應方式
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import * as WebBrowser from 'expo-web-browser';
-import * as AuthSession from 'expo-auth-session';
-
-// 必須呼叫此方法以確保 AuthSession 在 Android/iOS 正常運作
-WebBrowser.maybeCompleteAuthSession();
 
 // --- 常數設定 ---
 const MY_CUSTOM_BACKGROUND = require('../../assets/bg.jpg'); 
-
-// Google API 設定
-const GOOGLE_CLIENT_ID = '你的_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
 
 const RAINBOW_COLORS = [
   '#FF4081', '#00E5FF', '#76FF03', '#AA00FF', '#FFAB00', 
@@ -130,7 +120,6 @@ const CustomCalendar = ({ onSelectRange, onSelectDate, onClose, mode = 'range', 
     const d = new Date(year, month, day).setHours(0,0,0,0);
     const s = start ? new Date(start).setHours(0,0,0,0) : null;
     const e = end ? new Date(end).setHours(0,0,0,0) : null;
-    
     if (s && d === s) return 'active'; 
     if (e && d === e) return 'active'; 
     if (s && e && d > s && d < e) return 'between'; 
@@ -330,99 +319,41 @@ export default function Index() {
   const [catLabel, setCatLabel] = useState({ title: '總計', val: 0, id: null });
   const [dayLabel, setDayLabel] = useState({ title: '總計', val: 0, key: null });
 
-  // --- Google Drive 導出/導入邏輯 ---
-  
-  // 明確指定 redirectUri，解決報錯問題
-  const redirectUri = AuthSession.makeRedirectUri({
-    scheme: 'moneycount', // 必須與 app.json 設定一致
-  });
-
-  const [request, response, promptAsync] = AuthSession.useAuthRequest(
-    {
-      clientId: GOOGLE_CLIENT_ID,
-      scopes: [DRIVE_SCOPE],
-      redirectUri: redirectUri, // 傳入回調地址
-    },
-    { authorizationEndpoint: 'https://accounts.google.com/o/oauth2/v2/auth' }
-  );
-
-  const handleGDriveSync = async (mode) => {
-    const result = await promptAsync();
-    if (result?.type !== 'success') {
-      Alert.alert("授權失敗", "需要 Google 授權才能使用雲端功能");
-      return;
-    }
-
-    setLoading(true);
-    const accessToken = result.params.access_token;
-
-    try {
-      if (mode === 'EXPORT') {
-        const listRes = await fetch('https://www.googleapis.com/drive/v3/files?spaces=appDataFolder', {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        const listData = await listRes.json();
-        const existingFile = listData.files.find(f => f.name === 'moneycount_backup.json');
-
-        const metadata = { name: 'moneycount_backup.json', parents: ['appDataFolder'] };
-        const data = JSON.stringify(expenses);
-
-        if (existingFile) {
-          await fetch(`https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=media`, {
-            method: 'PATCH',
-            headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-            body: data
-          });
-        } else {
-          // 注意：multipart 上傳在 React Native Fetch 中較複雜，這裡簡化處理
-          Alert.alert("提示", "功能建構中，首次備份請聯繫管理員");
-        }
-        Alert.alert("成功", "數據已備份至 Google Drive (App Data)");
-      } else {
-        const listRes = await fetch('https://www.googleapis.com/drive/v3/files?spaces=appDataFolder', {
-          headers: { Authorization: `Bearer ${accessToken}` }
-        });
-        const listData = await listRes.json();
-        const existingFile = listData.files.find(f => f.name === 'moneycount_backup.json');
-
-        if (!existingFile) {
-          Alert.alert("提示", "雲端找不到備份檔案");
-        } else {
-          const fileRes = await fetch(`https://www.googleapis.com/drive/v3/files/${existingFile.id}?alt=media`, {
-            headers: { Authorization: `Bearer ${accessToken}` }
-          });
-          const importedData = await fileRes.json();
-          if (Array.isArray(importedData)) {
-            setExpenses(importedData);
-            Alert.alert("成功", "已從雲端還原所有數據");
-          }
-        }
-      }
-    } catch (err) {
-      Alert.alert("雲端操作失敗", err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // 修復後的 CSV 導出功能，加強穩定性與 WhatsApp 相容性
   const handleExportCSV = async () => {
     if (expenses.length === 0) {
       Alert.alert("提示", "目前沒有數據可以導出");
       return;
     }
+
     const header = "\uFEFF日期,項目,類別,原始金額,幣別,HKD金額\n";
     const rows = expenses.map(e => 
       `${e.year}/${e.month}/${e.day},${e.item},${e.category.label},${e.foreignAmount},${e.currency.code},${e.hkdAmount.toFixed(2)}`
     ).join("\n");
     const csvString = header + rows;
-    const fileUri = FileSystem.cacheDirectory + `MoneyCount_Export.csv`;
+    
+    // 使用 DocumentDirectory 確保檔案存取權限穩定
+    const fileUri = `${FileSystem.documentDirectory}MoneyCount_Data.csv`;
 
     try {
-      // 修正：針對新版 FileSystem API 的警告進行了標準化處理
-      await FileSystem.writeAsStringAsync(fileUri, csvString, { encoding: FileSystem.EncodingType.UTF8 });
+      await FileSystem.writeAsStringAsync(fileUri, csvString, { 
+        encoding: FileSystem.EncodingType.UTF8 
+      });
+
       const isSharingAvailable = await Sharing.isAvailableAsync();
-      if (isSharingAvailable) { await Sharing.shareAsync(fileUri); }
-    } catch (err) { Alert.alert("導出失敗", err.message); }
+      if (isSharingAvailable) { 
+        // 指定 mimeType 以便系統正確彈出 WhatsApp 選項
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'text/csv',
+          dialogTitle: '導出您的記帳記錄',
+          UTI: 'public.comma-separated-values-text'
+        }); 
+      } else {
+        Alert.alert("導出失敗", "您的裝置不支援分享功能");
+      }
+    } catch (err) { 
+      Alert.alert("導出失敗", err.message); 
+    }
   };
 
   useEffect(() => {
@@ -563,14 +494,8 @@ export default function Index() {
                   <Text style={styles.headerTitle}>MoneyCount 💸</Text>
                   {activeTab === 'OVERVIEW' && (
                     <View style={{flexDirection: 'row'}}>
-                      <TouchableOpacity onPress={() => handleGDriveSync('EXPORT')} style={[styles.exportBtn, {marginRight: 5, borderColor: '#76FF03'}]}>
-                        <Text style={{color: '#76FF03', fontWeight: 'bold', fontSize: 11}}>☁️ 備份</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity onPress={() => handleGDriveSync('IMPORT')} style={[styles.exportBtn, {marginRight: 5, borderColor: '#AA00FF'}]}>
-                        <Text style={{color: '#AA00FF', fontWeight: 'bold', fontSize: 11}}>☁️ 還原</Text>
-                      </TouchableOpacity>
                       <TouchableOpacity onPress={handleExportCSV} style={styles.exportBtn}>
-                        <Text style={{color: '#00E5FF', fontWeight: 'bold', fontSize: 11}}>📄 CSV</Text>
+                        <Text style={{color: '#00E5FF', fontWeight: 'bold', fontSize: 11}}>📄 導出 CSV</Text>
                       </TouchableOpacity>
                     </View>
                   )}
@@ -787,7 +712,7 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }, 
   loader: { flex: 1, justifyContent: 'center', backgroundColor: '#000' },
   stickyHeader: { paddingTop: 10, paddingHorizontal: 20, paddingBottom: 10, zIndex: 99 },
-  exportBtn: { backgroundColor: 'rgba(0,229,255,0.1)', paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: '#00E5FF', justifyContent: 'center' },
+  exportBtn: { backgroundColor: 'rgba(0,229,255,0.1)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#00E5FF', justifyContent: 'center' },
   fixedContent: { flex: 1, paddingHorizontal: 15, justifyContent: 'flex-start' },
   scrollContent: { paddingHorizontal: 15, paddingTop: 5 },
   headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#00E5FF' },
