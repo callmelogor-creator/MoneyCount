@@ -9,7 +9,7 @@
     "scheme": "moneycount",
     "newArchEnabled": true,
     "packagerOpts": {
-      "sourceExts": ["js", "jsx", "json", "ts", "tsx"]
+      "sourceExts": ["js", "jsx", "json"]
     },
     "ios": {
       "supportsTablet": true,
