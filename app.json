@@ -23,7 +23,6 @@
     "web": {
       "output": "static",
       "favicon": "./assets/images/favicon.png"
-      // ... 之後啲 web 設定保持不變
     },
     "plugins": [
       "expo-router",
@@ -35,8 +34,7 @@
           "resizeMode": "contain",
           "backgroundColor": "#000000"
         }
-      ],
-      "expo-sharing"
+      ]
     ],
     "extra": {
       "router": {
