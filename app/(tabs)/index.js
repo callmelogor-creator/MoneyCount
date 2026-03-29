@@ -2,9 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, 
   ActivityIndicator, ImageBackground, Alert, Platform, Image, Modal,
-  BackHandler, TouchableWithoutFeedback, KeyboardAvoidingView
+  BackHandler, TouchableWithoutFeedback, KeyboardAvoidingView, StatusBar
 } from 'react-native';
-// 修正 SafeAreaView：從正確的套件匯入以消除棄用警告
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { PieChart } from 'react-native-svg-charts';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -229,22 +228,24 @@ const AnalyticsCharts = ({ filtered, catLabel, setCatLabel, dayLabel, setDayLabe
 
   return (
     <View style={styles.chartsWrapper}>
-      <View style={[styles.chartFlexRow, { flexWrap: 'nowrap' }]}>
-        <View style={styles.chartContainer}>
-          <PieChart style={{ height: 160, width: 160 }} data={catPieData} innerRadius="65%" outerRadius="95%" />
-          <TouchableOpacity style={[styles.chartCenterText, { width: 100, height: 100 }]} onPress={() => setCatLabel({ title: '總計', val: 0, id: null })}>
-            <Text style={styles.centerTitle}>{catLabel.val === 0 ? "類別總計" : catLabel.title}</Text>
-            <Text style={styles.centerVal}>${(catLabel.val === 0 ? total : catLabel.val).toFixed(0)}</Text>
-          </TouchableOpacity>
+      <div style={{ pointerEvents: 'none' }}>
+        <View style={[styles.chartFlexRow, { flexWrap: 'nowrap' }]}>
+          <View style={styles.chartContainer}>
+            <PieChart style={{ height: 160, width: 160 }} data={catPieData} innerRadius="65%" outerRadius="95%" />
+            <TouchableOpacity style={[styles.chartCenterText, { width: 100, height: 100, pointerEvents: 'auto' }]} onPress={() => setCatLabel({ title: '總計', val: 0, id: null })}>
+              <Text style={styles.centerTitle}>{catLabel.val === 0 ? "類別總計" : catLabel.title}</Text>
+              <Text style={styles.centerVal}>${(catLabel.val === 0 ? total : catLabel.val).toFixed(0)}</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.chartContainer}>
+            <PieChart style={{ height: 160, width: 160 }} data={dayPieData} innerRadius="65%" outerRadius="95%" />
+            <TouchableOpacity style={[styles.chartCenterText, { width: 100, height: 100, pointerEvents: 'auto' }]} onPress={() => setDayLabel({ title: '總計', val: 0, key: null })}>
+              <Text style={styles.centerTitle}>{dayLabel.val === 0 ? "區間總額" : dayLabel.title}</Text>
+              <Text style={styles.centerVal}>${(dayLabel.val === 0 ? total : dayLabel.val).toFixed(0)}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        <View style={styles.chartContainer}>
-          <PieChart style={{ height: 160, width: 160 }} data={dayPieData} innerRadius="65%" outerRadius="95%" />
-          <TouchableOpacity style={[styles.chartCenterText, { width: 100, height: 100 }]} onPress={() => setDayLabel({ title: '總計', val: 0, key: null })}>
-            <Text style={styles.centerTitle}>{dayLabel.val === 0 ? "區間總額" : dayLabel.title}</Text>
-            <Text style={styles.centerVal}>${(dayLabel.val === 0 ? total : dayLabel.val).toFixed(0)}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      </div>
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 25, paddingHorizontal: 5 }}>
         <View style={{ width: '48%' }}>
@@ -319,41 +320,26 @@ export default function Index() {
   const [catLabel, setCatLabel] = useState({ title: '總計', val: 0, id: null });
   const [dayLabel, setDayLabel] = useState({ title: '總計', val: 0, key: null });
 
-  // 修復後的 CSV 導出功能，加強穩定性與 WhatsApp 相容性
   const handleExportCSV = async () => {
     if (expenses.length === 0) {
       Alert.alert("提示", "目前沒有數據可以導出");
       return;
     }
-
     const header = "\uFEFF日期,項目,類別,原始金額,幣別,HKD金額\n";
     const rows = expenses.map(e => 
       `${e.year}/${e.month}/${e.day},${e.item},${e.category.label},${e.foreignAmount},${e.currency.code},${e.hkdAmount.toFixed(2)}`
     ).join("\n");
     const csvString = header + rows;
-    
-    // 使用 DocumentDirectory 確保檔案存取權限穩定
     const fileUri = `${FileSystem.documentDirectory}MoneyCount_Data.csv`;
-
     try {
-      await FileSystem.writeAsStringAsync(fileUri, csvString, { 
-        encoding: FileSystem.EncodingType.UTF8 
-      });
-
+      await FileSystem.writeAsStringAsync(fileUri, csvString, { encoding: FileSystem.EncodingType.UTF8 });
       const isSharingAvailable = await Sharing.isAvailableAsync();
       if (isSharingAvailable) { 
-        // 指定 mimeType 以便系統正確彈出 WhatsApp 選項
-        await Sharing.shareAsync(fileUri, {
-          mimeType: 'text/csv',
-          dialogTitle: '導出您的記帳記錄',
-          UTI: 'public.comma-separated-values-text'
-        }); 
+        await Sharing.shareAsync(fileUri, { mimeType: 'text/csv', dialogTitle: '導出您的記帳記錄' }); 
       } else {
         Alert.alert("導出失敗", "您的裝置不支援分享功能");
       }
-    } catch (err) { 
-      Alert.alert("導出失敗", err.message); 
-    }
+    } catch (err) { Alert.alert("導出失敗", err.message); }
   };
 
   useEffect(() => {
@@ -437,7 +423,6 @@ export default function Index() {
     const hkdAmount = selectedCurr.code === 'HKD' ? parsedAmount : (parsedAmount / rateOfSelected);
     const targetDate = selectedDate;
     const finalItem = item.trim() === '' ? selectedCat.label : item.trim();
-    
     if (editingId) {
       setExpenses(prev => prev.map(e => e.id === editingId ? {
         ...e, item: finalItem, foreignAmount: parsedAmount, hkdAmount: hkdAmount,
@@ -485,25 +470,24 @@ export default function Index() {
 
   return (
     <SafeAreaProvider>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       <View style={styles.container}>
         <ImageBackground source={MY_CUSTOM_BACKGROUND} style={styles.bgImage}>
           <View style={styles.overlay}>
-            <SafeAreaView style={{flex:1}} edges={['top', 'left', 'right']}>
+            <SafeAreaView style={{flex:1}} edges={['left', 'right']}>
               <View style={styles.stickyHeader}>
                 <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
                   <Text style={styles.headerTitle}>MoneyCount 💸</Text>
                   {activeTab === 'OVERVIEW' && (
-                    <View style={{flexDirection: 'row'}}>
-                      <TouchableOpacity onPress={handleExportCSV} style={styles.exportBtn}>
-                        <Text style={{color: '#00E5FF', fontWeight: 'bold', fontSize: 11}}>📄 導出 CSV</Text>
-                      </TouchableOpacity>
-                    </View>
+                    <TouchableOpacity onPress={handleExportCSV} style={styles.exportBtn}>
+                      <Text style={{color: '#00E5FF', fontWeight: 'bold', fontSize: 11}}>📄 CSV</Text>
+                    </TouchableOpacity>
                   )}
                 </View>
               </View>
 
               {activeTab === 'RECORD' ? (
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.fixedContent}>
+                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.fixedContent}>
                   <View style={styles.cyberCard}>
                     <Text style={styles.formStatusText}>{editingId ? "正在修改資料..." : "新入數"}</Text>
                     <TouchableOpacity onPress={() => setSelectedCurr(CURRENCY_LIST[0])} style={[styles.currBtnFull, selectedCurr.code === 'HKD' && styles.currActive]}>
@@ -526,7 +510,7 @@ export default function Index() {
                     )}
                     <TextInput style={styles.cyberInput} placeholder="買咗咩？" placeholderTextColor="#666" value={item} onChangeText={setItem} />
                     <TextInput style={styles.cyberInput} placeholder="金額" keyboardType="numeric" placeholderTextColor="#666" value={amount} onChangeText={setAmount} />
-                    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10}}>
+                    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
                       <TouchableOpacity style={[styles.datePickerBtn, {flex:1, marginRight:5}]} onPress={() => setShowDatePicker(true)}>
                         <Text style={{color: '#FFF', fontSize: 13}}>📅 {selectedDate.toLocaleDateString()}</Text>
                       </TouchableOpacity>
@@ -535,9 +519,8 @@ export default function Index() {
                       </TouchableOpacity>
                     </View>
                     {capturedImage && (
-                      <TouchableOpacity onPress={() => setViewingImage(capturedImage)} style={{marginBottom: 10, alignItems: 'center'}}>
-                        <Image source={{uri: capturedImage}} style={{width: '100%', height: 80, borderRadius: 10}} />
-                        <Text style={{color: '#AAA', fontSize: 10, marginTop: 4}}>點擊放大圖片</Text>
+                      <TouchableOpacity onPress={() => setViewingImage(capturedImage)} style={{marginBottom: 8, alignItems: 'center'}}>
+                        <Image source={{uri: capturedImage}} style={{width: '100%', height: 60, borderRadius: 10}} />
                       </TouchableOpacity>
                     )}
                     <View style={styles.catGrid}>
@@ -557,7 +540,6 @@ export default function Index() {
                   <View style={styles.searchContainer}>
                     <TextInput style={styles.searchInput} placeholder="🔍 搜尋..." placeholderTextColor="#CCC" value={searchQuery} onChangeText={setSearchQuery} />
                   </View>
-
                   <View style={styles.headerRow}>
                     <View style={styles.yearSelector}>
                       <TouchableOpacity onPress={() => setViewYear(v => v - 1)}><Text style={styles.cyanText}>◀</Text></TouchableOpacity>
@@ -568,12 +550,11 @@ export default function Index() {
                       <Text style={{color: isYearlyView ? '#000' : '#00E5FF', fontSize:13, fontWeight:'bold'}}>{isYearlyView ? "返去月覽" : "全年總結"}</Text>
                     </TouchableOpacity>
                   </View>
-
                   {!isYearlyView && (
                     <>
                       {customRange ? (
                         <TouchableOpacity style={styles.rangeCancelBtn} onPress={() => { setCustomRange(null); resetChartLabels(); }}>
-                          <Text style={{color: '#FFF', fontWeight:'bold', fontSize: 14}}>❌ 取消篩選 ({customRange.start.toLocaleDateString()} - {customRange.end.toLocaleDateString()})</Text>
+                          <Text style={{color: '#FFF', fontWeight:'bold', fontSize: 14}}>❌ 取消篩選</Text>
                         </TouchableOpacity>
                       ) : (
                         <TouchableOpacity style={styles.rangeBtn} onPress={() => setShowCalendar(true)}>
@@ -591,7 +572,6 @@ export default function Index() {
                       )}
                     </>
                   )}
-
                   {isYearlyView ? (
                     <View style={styles.yearlyListContainer}>
                       <AnalyticsCharts filtered={filteredData} catLabel={catLabel} setCatLabel={setCatLabel} dayLabel={dayLabel} setDayLabel={setDayLabel} />
@@ -680,9 +660,6 @@ export default function Index() {
         <Modal visible={!!viewingImage} transparent onRequestClose={() => setViewingImage(null)}>
           <TouchableOpacity style={styles.modalBg} onPress={() => setViewingImage(null)}>
             <Image source={{ uri: viewingImage }} style={styles.fullImage} resizeMode="contain" />
-            <TouchableOpacity style={styles.closeImageBtn} onPress={() => setViewingImage(null)}>
-              <Text style={{color: '#FFF', fontWeight: 'bold'}}>關閉</Text>
-            </TouchableOpacity>
           </TouchableOpacity>
         </Modal>
 
@@ -711,9 +688,9 @@ const styles = StyleSheet.create({
   bgImage: { flex: 1, width: '100%' },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' }, 
   loader: { flex: 1, justifyContent: 'center', backgroundColor: '#000' },
-  stickyHeader: { paddingTop: 10, paddingHorizontal: 20, paddingBottom: 10, zIndex: 99 },
-  exportBtn: { backgroundColor: 'rgba(0,229,255,0.1)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#00E5FF', justifyContent: 'center' },
-  fixedContent: { flex: 1, paddingHorizontal: 15, justifyContent: 'flex-start' },
+  stickyHeader: { paddingTop: Platform.OS === 'ios' ? 50 : 45, paddingHorizontal: 20, paddingBottom: 10, zIndex: 99 },
+  exportBtn: { backgroundColor: 'rgba(0,229,255,0.1)', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#00E5FF' },
+  fixedContent: { flex: 1, paddingHorizontal: 15, justifyContent: 'center' },
   scrollContent: { paddingHorizontal: 15, paddingTop: 5 },
   headerTitle: { fontSize: 24, fontWeight: 'bold', color: '#00E5FF' },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, alignItems: 'center' },
@@ -728,23 +705,23 @@ const styles = StyleSheet.create({
   monthGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
   monthBox: { width: '15%', paddingVertical: 8, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 8, alignItems: 'center', marginBottom: 6, borderWidth: 1, borderColor: '#333' },
   activeBorder: { borderColor: '#00E5FF', backgroundColor: 'rgba(0,229,255,0.2)' },
-  cyberCard: { backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 20, padding: 15, borderWidth: 1, borderColor: '#333' },
-  formStatusText: { color: '#00E5FF', marginBottom: 8, fontWeight: 'bold', fontSize: 13 },
-  currBtnFull: { backgroundColor: 'rgba(255,255,255,0.1)', padding: 10, borderRadius: 10, marginBottom: 8, alignItems: 'center', borderWidth: 1, borderColor: '#444' },
-  currGridSmall: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 8 },
-  currBtnSmall: { width: '32%', backgroundColor: 'rgba(255,255,255,0.05)', padding: 8, borderRadius: 8, marginBottom: 6, alignItems: 'center', borderWidth: 1, borderColor: '#333' },
+  cyberCard: { backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 20, padding: 12, borderWidth: 1, borderColor: '#333' },
+  formStatusText: { color: '#00E5FF', marginBottom: 6, fontWeight: 'bold', fontSize: 13 },
+  currBtnFull: { backgroundColor: 'rgba(255,255,255,0.1)', padding: 8, borderRadius: 10, marginBottom: 6, alignItems: 'center', borderWidth: 1, borderColor: '#444' },
+  currGridSmall: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 6 },
+  currBtnSmall: { width: '32%', backgroundColor: 'rgba(255,255,255,0.05)', padding: 6, borderRadius: 8, marginBottom: 4, alignItems: 'center', borderWidth: 1, borderColor: '#333' },
   currActive: { borderColor: '#00E5FF', backgroundColor: 'rgba(0,229,255,0.1)' },
   currText: { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
   currTextSmall: { color: '#EEE', fontSize: 11 },
-  rateInfoBox: { padding: 6, backgroundColor: 'rgba(0,229,255,0.08)', borderRadius: 10, marginBottom: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(0,229,255,0.2)' },
-  rateText: { color: '#00E5FF', fontSize: 11, fontWeight: 'bold' },
-  cyberInput: { backgroundColor: '#FFF', color: '#000', padding: 12, borderRadius: 12, marginBottom: 8, fontSize: 14 },
-  datePickerBtn: { backgroundColor: 'rgba(255,255,255,0.1)', padding: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#444' },
-  attachmentBtn: { backgroundColor: '#333', padding: 12, borderRadius: 12, alignItems: 'center' },
-  catGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
-  catItem: { width: '18%', aspectRatio: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 10, borderWidth: 1, borderColor: '#333', marginBottom: 8 },
+  rateInfoBox: { padding: 4, backgroundColor: 'rgba(0,229,255,0.08)', borderRadius: 10, marginBottom: 6, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(0,229,255,0.2)' },
+  rateText: { color: '#00E5FF', fontSize: 10, fontWeight: 'bold' },
+  cyberInput: { backgroundColor: '#FFF', color: '#000', padding: 10, borderRadius: 12, marginBottom: 6, fontSize: 14 },
+  datePickerBtn: { backgroundColor: 'rgba(255,255,255,0.1)', padding: 10, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#444' },
+  attachmentBtn: { backgroundColor: '#333', padding: 10, borderRadius: 12, alignItems: 'center' },
+  catGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 8 },
+  catItem: { width: '18%', aspectRatio: 1, justifyContent: 'center', alignItems: 'center', borderRadius: 10, borderWidth: 1, borderColor: '#333', marginBottom: 6 },
   catLabel: { color: '#EEE', fontSize: 9, marginTop: 2 },
-  addBtn: { backgroundColor: '#00E5FF', padding: 15, borderRadius: 15, alignItems: 'center' },
+  addBtn: { backgroundColor: '#00E5FF', padding: 12, borderRadius: 15, alignItems: 'center' },
   addBtnText: { color: '#000', fontWeight: 'bold', fontSize: 16 },
   chartsWrapper: { backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20, padding: 15, marginBottom: 15 },
   chartFlexRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
@@ -761,17 +738,14 @@ const styles = StyleSheet.create({
   daySumText: { color: '#FFF', fontWeight: 'bold' },
   listItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', padding: 10, borderRadius: 12, marginBottom: 6 },
   listThumbnail: { width: 35, height: 35, borderRadius: 6, borderWidth: 1, borderColor: '#444' },
-  closeImageBtn: { position: 'absolute', bottom: 50, backgroundColor: 'rgba(255,255,255,0.2)', padding: 12, borderRadius: 20 },
   nav: { 
-    position: 'absolute', 
-    bottom: 0, 
-    width: '100%', 
     flexDirection: 'row', 
-    height: Platform.OS === 'android' ? 90 : 80, 
+    height: Platform.OS === 'ios' ? 85 : 70, // 增加一點高度給 Android
     backgroundColor: 'rgba(0,0,0,0.95)', 
     borderTopWidth: 1, 
     borderColor: '#333',
-    paddingBottom: Platform.OS === 'android' ? 15 : 0 
+    paddingBottom: Platform.OS === 'ios' ? 25 : 15, // Android 加入 15px padding 避開導航鍵
+    alignItems: 'center'
   },
   navBtn: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   navText: { color: '#777', fontSize: 12 },
