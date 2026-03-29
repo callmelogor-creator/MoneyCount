@@ -18,6 +18,11 @@
         "foregroundImage": "./assets/images/icon.png"
       },
       "edgeToEdgeEnabled": true,
+      "androidStatusBar": {
+        "translucent": true,
+        "backgroundColor": "#00000000",
+        "barStyle": "light-content"
+      },
       "package": "com.locs67.moneycount2026"
     },
     "web": {
